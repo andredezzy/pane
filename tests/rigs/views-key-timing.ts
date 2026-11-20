@@ -4,16 +4,16 @@ import { PRIMARY } from "../lib/platform";
 import { signpostFrameIntervals } from "../lib/signposts";
 import { expect, type Scenario } from "../run";
 
-// H7's keys to their frames (docs/plans/views-migration.md, Phase 3), on the
-// Views build, in the background. Each key is posted through AppKit's queue,
-// which the menu bar takes as the user's key, and timed from the command it
-// runs to the frame on screen, by the app's signposts: ⌘1 and ⌘2 between two
-// tabs ("Select tab"), ⌘T ("New tab", each closed again by ⌘W), ⌘L ("Focus
-// address field", from the page), Ctrl-Tab ("Open switcher", chosen by Ctrl's
-// release), and ⌘Q ("Open quit dialog", Esc going back). Each also to its
-// frame's commit to Core Animation, where the Swift app's intervals end, and
-// to the screen as the GPU process predicts it, where the build says. For
-// the Views build, from out/Release:
+// Each shortcut's key to its frame (commit 3f62f15), on the Views build, in the
+// background. Each key is posted through AppKit's queue, which the menu bar
+// takes as the user's key, and timed from the command it runs to the frame on
+// screen, by the app's signposts: ⌘1 and ⌘2 between two tabs ("Select tab"), ⌘T
+// ("New tab", each closed again by ⌘W), ⌘L ("Focus address field", from the
+// page), Ctrl-Tab ("Open switcher", chosen by Ctrl's release), and ⌘Q ("Open
+// quit dialog", Esc going back). Each also to its frame's commit to Core
+// Animation, where the Swift app's intervals end, and to the screen as the GPU
+// process predicts it, where the build says. For the Views build, from
+// out/Release:
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> tests/rigs/views-key-timing.ts

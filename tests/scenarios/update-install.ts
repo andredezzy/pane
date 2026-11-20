@@ -598,16 +598,15 @@ async function failedSwap(context: Parameters<Scenario>[0], releases: string) {
 }
 
 // A real release's dmg (scripts/dist.sh's), installed by the run's Pane, as a
-// published Pane installs the next release (ADR 0092, ADR 0122;
-// docs/plans/views-migration.md, K1): the published 0.19.1 installs the Views
-// release, and a Views build the next. Its Pane has the run's identifier, and
-// the copy reports an older version than it. A profile and its tab go before
-// the update, and come back after it. Restart to update swaps it in and opens
-// it on the same data; a Pane that opens it as a scenario's copy again (the
-// Views app passes the mock keychain on) is read on the same channel, and
-// timed from the press to its first window. A published Pane passes nothing:
-// a test copy of the Views app opened that way refuses to start, and the
-// runner opens it on the same data instead.
+// published Pane installs the next release (ADR 0092, ADR 0122): the published
+// 0.19.1 installs the Views release, and a Views build the next. Its Pane has
+// the run's identifier, and the copy reports an older version than it. A
+// profile and its tab go before the update, and come back after it. Restart to
+// update swaps it in and opens it on the same data; a Pane that opens it as a
+// scenario's copy again (the Views app passes the mock keychain on) is read on
+// the same channel, and timed from the press to its first window. A published
+// Pane passes nothing: a test copy of the Views app opened that way refuses to
+// start, and the runner opens it on the same data instead.
 async function installRelease(context: Parameters<Scenario>[0], path: string) {
 	const dmg = await releaseDmg(context, path);
 	let origin = "";

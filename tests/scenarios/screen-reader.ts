@@ -189,7 +189,8 @@ const describe = ({ depth, rect, ...element }: AccessibleElement) =>
 // switch on after the pointer leaves it (Views' Button cleared a switch's
 // state at each change of its own); Quit Pane? and an extension's prompt as
 // dialogs named by their titles; and the PIN's dots by their count. The Mac's read
-// as ADR 0071 has them since, Windows' as W8c made them for Narrator.
+// as ADR 0071 has them since, Windows' as commit 490757e made them for
+// Narrator.
 const screenReader: Scenario = async (context) => {
 	if (!(await canReadUI())) {
 		context.defer(
@@ -284,7 +285,7 @@ const screenReader: Scenario = async (context) => {
 
 	// The edge resized by its keys once a screen reader has focused it, a
 	// tenth of its range a step, as Views' sliders step: Right and Up wider,
-	// Left and Down narrower (W8c: no key moved it on Windows).
+	// Left and Down narrower (until commit f475f04 no key moved it on Windows).
 	const edgeWidth = Math.round(rest.sidebarWidth);
 	await app.send("screenReaderFocus", { name: "pane.sidebar.resize" });
 
@@ -394,10 +395,10 @@ const screenReader: Scenario = async (context) => {
 
 	// Where Return presses the button with the ring (Windows, ADR 0126), the
 	// prompt's Cancel takes the keys and Return presses it: Enter on a focused
-	// Cancel added the extension (W8c). In front Tab gives it the ring, by the
-	// window's own traversal; behind, a screen reader's focus does, as the
-	// channel's keys reach the window past its traversal (W8d: a Tab handed
-	// so moved nothing, and Return accepted). Elsewhere Esc cancels it.
+	// Cancel added the extension (until commit f475f04). In front Tab gives it
+	// the ring, by the window's own traversal; behind, a screen reader's focus
+	// does, as the channel's keys reach the window past its traversal (a Tab
+	// handed so moved nothing, and Return accepted). Elsewhere Esc cancels it.
 	if (RETURN_PRESSES_THE_RING) {
 		if (context.foreground) {
 			await pressWindowKey(context, app, "\t");
@@ -424,7 +425,8 @@ const screenReader: Scenario = async (context) => {
 
 	// The PIN's dots, as Set up PIN shows them, read as text; the screen a
 	// dialog named by its step's title, the keys in a protected field, so a
-	// screen reader never says a digit typed (W8c: Narrator said "9 9 9 9").
+	// screen reader never says a digit typed (Narrator said "9 9 9 9" until
+	// commit f475f04).
 	await app.send("showPinScreen", { mode: "setup" });
 
 	await app.waitFor(

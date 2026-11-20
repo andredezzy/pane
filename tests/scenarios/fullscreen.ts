@@ -172,7 +172,7 @@ const fullscreen: Scenario = async (context) => {
 	// the page's keeps the window in full screen.
 	if (!(await toggleFromMenu())) {
 		context.defer(
-			"the user's full screen from View › Enter Full Screen: the menu bar is H7's",
+			"the user's full screen from View › Enter Full Screen: the menu bar has no such item",
 		);
 
 		await watcher.stop();

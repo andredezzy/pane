@@ -78,7 +78,7 @@ void BrowserMainExtraParts::UsePanesWords() {
 // The clear starts as the browser's start does, on the thread pool, whose
 // threads are COM's (the browser's is COM_MTA), and the initial profile's
 // load waits for it if it isn't done (ClearLeftoverNotifications): the 18.5
-// to 49.5 ms it took on the UI thread in the test VM (W10h) go beside
+// to 49.5 ms it took on the UI thread in the test VM (commit 5cd22d7) go beside
 // Chrome's start, not before the PIN screen's first frame.
 // static
 void BrowserMainExtraParts::StartClearingLeftoverNotifications() {

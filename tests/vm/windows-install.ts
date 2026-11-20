@@ -894,7 +894,8 @@ const windowsInstall: Scenario = async (context) => {
 		// made them. Chrome's profile shortcuts (ProfileShortcutManagerWin),
 		// which run where the engine's folder is Chromium's default, as the
 		// install's is, turned the desktop's Pane.lnk into "Your Chromium -
-		// Chromium" for the Default profile once a second profile appeared (W8).
+		// Chromium" for the Default profile once a second profile appeared (ADR
+		// 0010).
 		const page = join(context.tempDir("w8-page"), "w8-page.html");
 		writeFileSync(page, "<!doctype html><title>W8 page</title>");
 		Bun.spawn([chrome, page], { cwd: profile });
@@ -1002,8 +1003,8 @@ const windowsInstall: Scenario = async (context) => {
 		// mapped, as Windows' shell maps it while it reads it for Pane's
 		// taskbar button: the rewrite it refuses meanwhile
 		// (ERROR_USER_MAPPED_FILE) is tried again, where it once stayed on
-		// Night until Windows' next change, the taskbar's button with it (W9a,
-		// W9d; W10a).
+		// Night until Windows' next change, the taskbar's button with it (ADR
+		// 0089).
 		await setSystemDark(true);
 
 		await until(
@@ -1306,11 +1307,11 @@ const windowsInstall: Scenario = async (context) => {
 			500,
 		);
 
-		// 11. An uninstall with no data (W8d): Pane installed again, its data
-		// deleted once it has exited, as its user may delete the folder, then
+		// 11. An uninstall with no data (commit f475f04): Pane installed again, its
+		// data deleted once it has exited, as its user may delete the folder, then
 		// the uninstall from its entry: no data box, a last screen that says
-		// nothing of data (it said the data stayed), and nothing of Pane's
-		// left, the data's preference MACs neither.
+		// nothing of data (it said the data stayed), and nothing of Pane's left,
+		// the data's preference MACs neither.
 		const fourth = await install(context.binary, "no-data");
 
 		await until(

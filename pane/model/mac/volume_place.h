@@ -67,9 +67,9 @@ class VolumeTools : public base::RefCountedThreadSafe<VolumeTools> {
 // The image's attach as Pane starts, its volume locked, while the engine
 // starts and the PIN is typed (ADR 0113), with its watchdog: what is left once
 // the key opens is the unlock and the mount. It runs before the thread pool
-// exists (docs/plans/views-migration.md, C5), on a thread of its own, and only
-// in the Pane that holds the data's lock: a Pane started while another runs
-// leaves that one's image alone. The vault takes what it came to.
+// exists (PaneMainDelegate::BasicStartupComplete, ADR 0010), on a thread of its
+// own, and only in the Pane that holds the data's lock: a Pane started while
+// another runs leaves that one's image alone. The vault takes what it came to.
 class LaunchAttach : public base::RefCountedThreadSafe<LaunchAttach> {
  public:
   // Starts it, when the image exists: a fresh install has none until the key

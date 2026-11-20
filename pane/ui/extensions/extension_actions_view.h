@@ -20,12 +20,12 @@ class IconButton;
 
 // The shown profile's extensions in the toolbar (the Swift's
 // ExtensionActionsView, ADR 0054, Paper 03.9 and 04.6), in the place the
-// toolbar keeps for them (H4): its pinned actions, then the puzzle, 4 apart.
-// As Aside's, the pinned actions sit in a capsule, 32-point circles 4 apart
-// and flush inside its 1-point border, which shows only while the pointer is
-// over them (fading as a hover does) or one's popup shows. An action is
-// lit while its popup shows and while its right-click menu does; the puzzle,
-// while the menu shows. Each reads its action's title, else its name.
+// toolbar keeps for them: its pinned actions, then the puzzle, 4 apart. As
+// Aside's, the pinned actions sit in a capsule, 32-point circles 4 apart and
+// flush inside its 1-point border, which shows only while the pointer is over
+// them (fading as a hover does) or one's popup shows. An action is lit while
+// its popup shows and while its right-click menu does; the puzzle, while the
+// menu shows. Each reads its action's title, else its name.
 class ExtensionActionsView : public views::View {
   METADATA_HEADER(ExtensionActionsView, views::View)
 

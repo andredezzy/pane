@@ -30,18 +30,10 @@ export function bySystem<T>(sides: Record<System, T>): T {
 	return sides[system];
 }
 
-// What a Windows side throws where it has none yet: `owner` is the item of
-// docs/plans/views-migration.md that brings it (W3 Windows' data, W4 its
-// platform files, W7 its install and update, W8 its audits) or the user's
-// decision it rests on (U5, U6), and `why` says what it waits on.
-export function noWindowsSide(
-	what: string,
-	owner: string,
-	why?: string,
-): Error {
-	return new Error(
-		`${what}: no Windows side yet (${owner}, docs/plans/views-migration.md)${why ? `; ${why}` : ""}`,
-	);
+// What a Windows side throws where it has none: `why` says why, and the
+// record it rests on.
+export function noWindowsSide(what: string, why: string): Error {
+	return new Error(`${what}: no Windows side (${why})`);
 }
 
 // The engine's folder in Pane's data folder, Chromium's user data dir, which

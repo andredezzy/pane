@@ -384,8 +384,7 @@ export const footprintsOf = bySystem({
 	windows: async (_pids: number[], _file: string): Promise<Footprints> => {
 		throw noWindowsSide(
 			"the processes' footprint",
-			"U6",
-			"a real PC's numbers",
+			"a real PC's numbers, ADR 0124's U6",
 		);
 	},
 });

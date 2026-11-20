@@ -42,7 +42,7 @@ class ValueMotion;
 // offer, New, a rule, Settings). Rows keep their
 // views by profile and tab, so what moves keeps moving (a profile's bar,
 // mid-morph), and only a row whose value changed redraws (ADR 0073).
-// Profiles, and each profile's tabs, reorder by dragging (ADR 0066, H3).
+// Profiles, and each profile's tabs, reorder by dragging (ADR 0066).
 class SidebarView : public views::View {
   METADATA_HEADER(SidebarView, views::View)
 

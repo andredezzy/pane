@@ -9,11 +9,11 @@
 
 namespace pane::model {
 
-// The platform Pane runs on (docs/plans/views-migration.md, N4): a new
-// profile's fingerprint claims it unless the user picks another, one on it
-// claims the computer's own GPU (GeneratedFingerprint), and one on another
-// hides the computer's own voices (EngineFingerprint). The Mac's on the Mac
-// and Windows' on Windows, so what a Mac profile saved reads back the same.
+// The platform Pane runs on (commit db6b675): a new profile's fingerprint
+// claims it unless the user picks another, one on it claims the computer's own
+// GPU (GeneratedFingerprint), and one on another hides the computer's own
+// voices (EngineFingerprint). The Mac's on the Mac and Windows' on Windows, so
+// what a Mac profile saved reads back the same.
 Platform HostPlatform();
 
 // What the profile sheet and Settings call the computer Pane runs on: "Sites

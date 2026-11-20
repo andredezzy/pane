@@ -16,9 +16,9 @@ namespace pane {
 // it as one, never the digits it holds. It holds none: a 0 for each digit
 // typed, which it shows a screen reader as a bullet. With the PIN screen's
 // panel holding the keys, Narrator spoke them; a view only claiming a text
-// field's role it read nothing of, at the Lock nor walked (W8d). It draws
-// nothing, takes no press, offers no menu, and edits nothing: each key goes
-// to the PIN screen, ahead of the field's own handling.
+// field's role it read nothing of, at the Lock nor walked (commit f475f04). It
+// draws nothing, takes no press, offers no menu, and edits nothing: each key
+// goes to the PIN screen, ahead of the field's own handling.
 class PinField : public views::Textfield, public views::TextfieldController {
   METADATA_HEADER(PinField, views::Textfield)
 

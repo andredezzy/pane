@@ -40,7 +40,7 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // Where it runs (lib/platform.ts).
 export const notOnWindows: NotOnWindows = {
 	macOnly:
-		"every row of ADR 0122's table is an earlier Pane's data on the Mac: here the profiles 0.14.0 to 0.18.1 wrote, converted to ADR 0121's formats; no Pane was ever published for Windows, so every profile there starts encrypted (W2)",
+		"every row of ADR 0122's table is an earlier Pane's data on the Mac: here the profiles 0.14.0 to 0.18.1 wrote, converted to ADR 0121's formats; Windows' first Pane, 0.21.0, wrote ADR 0121's formats from the start, so no profile there needs converting",
 };
 
 // A profile an earlier Pane wrote, opened with this one (ADR 0121): everything it

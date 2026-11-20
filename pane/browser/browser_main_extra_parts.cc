@@ -93,11 +93,11 @@ void KeepDictionariesInUserData() {
 // asks, as it clears the crash list with the profile's history
 // (ChromeBrowsingDataRemoverDelegate, CreateCrashUploadList()->Clear()): an
 // empty Crashpad folder appeared in Windows' engine folder at Delete profile
-// (W9a), and in Application Support's Chromium folder on the Mac, outside
-// Pane's data. Pane keeps no crash reports (ADR 0115), so the folder is named
-// in the user data dir, Pane's data, and never made: the clear finds no log
-// there and no database, and does nothing. Before any profile is deleted,
-// those a quit left marked included.
+// (found by hand on Windows, 2026-11-16; commit f81ca5f), and in Application
+// Support's Chromium folder on the Mac, outside Pane's data. Pane keeps no
+// crash reports (ADR 0115), so the folder is named in the user data dir, Pane's
+// data, and never made: the clear finds no log there and no database, and does
+// nothing. Before any profile is deleted, those a quit left marked included.
 void KeepNoCrashFolder() {
   base::FilePath user_data;
   if (base::PathService::Get(chrome::DIR_USER_DATA, &user_data)) {

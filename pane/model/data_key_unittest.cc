@@ -307,7 +307,7 @@ std::vector<BrowserProfile> SwiftProfiles() {
 
 // The files and keys the Swift Pane wrote (PaneKit's SwiftVectorsTests),
 // read byte for byte: its boxes open, its derived keys are these, and its
-// files decode to what it wrote (docs/plans/views-migration.md, C1).
+// files decode to what it wrote (commit 4d419e2).
 TEST(SwiftVectorsTest, Vectors) {
   base::FilePath root;
   ASSERT_TRUE(base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &root));
@@ -428,9 +428,9 @@ TEST(SwiftVectorsTest, Vectors) {
 }
 
 // The profiles a Mac Pane saved go through the sheet untouched as they were,
-// byte for byte (docs/plans/views-migration.md, N4): the platform defaults
-// are the one Pane runs on, which changes nothing a Mac profile holds, and
-// the sheet's missing Group keeps the saved one.
+// byte for byte (commit db6b675): the platform defaults are the one Pane runs
+// on, which changes nothing a Mac profile holds, and the sheet's missing Group
+// keeps the saved one.
 TEST(SwiftVectorsTest, SheetKeepsWhatAMacSaved) {
   base::FilePath root;
   ASSERT_TRUE(base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &root));

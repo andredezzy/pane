@@ -175,8 +175,8 @@ export const pinGuardKeys = bySystem({
 // `dirs`, and of a user launch's Pane folder in it (lib/pane.ts), as the
 // runner removes them: a key outlives its folder in the user's Platform
 // Crypto Provider, where each test copy whose PIN went through the chip left
-// one (W8: 203 in the test VM from earlier rounds). Returns how many went.
-// None on the Mac.
+// one (203 in the test VM from earlier rounds, 2026-11-16; commit fcd50d3).
+// Returns how many went. None on the Mac.
 export const forgetTestCopiesTpmKeys = bySystem({
 	mac: async (_dirs: string[]): Promise<number> => 0,
 	windows: async (dirs: string[]): Promise<number> => {

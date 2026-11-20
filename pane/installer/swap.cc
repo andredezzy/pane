@@ -393,9 +393,9 @@ SwapOutcome RunSwap(const SwapRequest& request) {
   // Then what it leaves: the old app, the installer and its record, the
   // mark of a swap that failed before, and the update folder where nothing
   // else is in it. The old app's files go as the list does, and what is still
-  // held then (Windows Defender reading a file a moment, as W7b's installer
-  // found) goes in the tries after; what outlasts them, the next launch
-  // removes.
+  // held then (Windows Defender reading a file a moment, as the installer's
+  // runs in the test VM found, 2026-11-15) goes in the tries after; what
+  // outlasts them, the next launch removes.
   swapped.reset();
   const base::FilePath swapping = SwappingFolder(update);
   for (int attempt = 0; base::PathExists(swapping); ++attempt) {

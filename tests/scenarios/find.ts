@@ -50,8 +50,8 @@ const find: Scenario = async (context) => {
 	);
 
 	// ⌘G and ⇧⌘G with the bar closed open it on the last search and find it,
-	// as Chrome's do (W9a: they opened nothing); ⌘F still opens it empty
-	// (ADR 0067).
+	// as Chrome's do (by hand on Windows, 2026-11-16, they opened nothing); ⌘F
+	// still opens it empty (ADR 0067).
 	await app.send("find", { text: "needle" });
 	await app.waitFor("5 matches again", (state) => state.find.matches === 5);
 

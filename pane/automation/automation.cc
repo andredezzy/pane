@@ -797,7 +797,8 @@ void Automation::Dispatch(const std::string& name,
 
   // The profile sheet's Create, as filled in: { name, color?, spoof?,
   // savesHistory? }. Scenarios' profiles spoof nothing unless asked, so pages
-  // see the engine's own values. The sheet has no Group (N1).
+  // see the engine's own values. The sheet has no Group (the user's answer of
+  // 2026-11-11).
   if (name == "createProfile") {
     const std::string* profile_name = command.FindString("name");
     if (!profile_name) {

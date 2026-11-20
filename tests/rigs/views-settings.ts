@@ -12,19 +12,18 @@ import { silentServer } from "../lib/proxies";
 import { signpostIntervals } from "../lib/signposts";
 import { expect, type Scenario } from "../run";
 
-// H6, the panels (docs/plans/views-migration.md, Phase 3), on the Views
-// build, in the background. Settings' renders, for the Swift's (surfaces'
-// settings-top, settings-end, settings-updates-checking,
-// app-icon-picker-automatic and -dusk, settings-app-icon-dusk,
-// settings-pin-set, updates-available, -downloading, and -downloaded) and for
-// what they miss: the picker on every sky, each menu's trigger under the
-// pointer, and each menu's items as its model holds them; in front, the
-// system's menus too, each opened by a click under its trigger (Paper 05.7),
-// Dark chosen in Theme's by keys (checkMenuUnderTrigger).
-// settings.json as the menus left it, and the update row before any check.
-// Then how long Settings, a Theme, the picker, and a sky take from their
-// input to the frame on screen, read from the app's signposts. For the Views
-// build, from out/Release:
+// The panels (commit 54cc5f3), on the Views build, in the background. Settings'
+// renders, for the Swift's (surfaces' settings-top, settings-end,
+// settings-updates-checking, app-icon-picker-automatic and -dusk,
+// settings-app-icon-dusk, settings-pin-set, updates-available, -downloading,
+// and -downloaded) and for what they miss: the picker on every sky, each menu's
+// trigger under the pointer, and each menu's items as its model holds them; in
+// front, the system's menus too, each opened by a click under its trigger
+// (Paper 05.7), Dark chosen in Theme's by keys (checkMenuUnderTrigger).
+// settings.json as the menus left it, and the update row before any check. Then
+// how long Settings, a Theme, the picker, and a sky take from their input to
+// the frame on screen, read from the app's signposts. For the Views build, from
+// out/Release:
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> [--appearance light|dark] tests/rigs/views-settings.ts
@@ -387,7 +386,7 @@ async function updates(
 		await app.render("surfaces-updates-available.png", 600);
 
 		// A PIN set, Pane locked and opened again, as surfaces' third copy did
-		// before the download (its Lock render is L1's).
+		// before the download (its Lock render is views-lock's).
 		await setUpPin(app, "1234");
 		await app.send("lockNow");
 		await app.waitFor("the Lock", (state) => state.security.locked);

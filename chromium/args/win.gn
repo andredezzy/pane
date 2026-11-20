@@ -1,6 +1,7 @@
-# The Windows engine, cross-built from the Mac (docs/plans/views-migration.md,
-# G7 and W1): release.gn's args for x64. G7 compiles //pane's objects in it
-# before each push; no full Windows build yet.
+# The Windows engine, cross-built from the Mac (ADR 0124's U6): release.gn's
+# args for x64. scripts/build.sh builds it with PANE_BUILD_PLATFORM=windows-x64,
+# and scripts/compile-windows.sh compiles //pane's objects in it before each
+# push.
 is_debug = false
 dcheck_always_on = false
 symbol_level = 1

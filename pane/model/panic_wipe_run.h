@@ -74,12 +74,12 @@ class LaunchErase : public base::RefCountedThreadSafe<LaunchErase> {
 };
 
 // At launch, before anything reads the data directory, and before the thread
-// pool exists (docs/plans/views-migration.md, C5). The wiped instance's switch
-// names it and its helpers, which this waits out. A wipe is due too when
-// security.json still holds the last attempt: the wiped instance died before
-// starting this one. The data moves out of the way at once, so Pane starts
-// fresh, and is erased on a thread; data a wipe cut short left (a crash, a
-// quit) is erased the same way. Null when nothing is staged.
+// pool exists (PaneMainDelegate::BasicStartupComplete, ADR 0010). The wiped
+// instance's switch names it and its helpers, which this waits out. A wipe is
+// due too when security.json still holds the last attempt: the wiped instance
+// died before starting this one. The data moves out of the way at once, so Pane
+// starts fresh, and is erased on a thread; data a wipe cut short left (a crash,
+// a quit) is erased the same way. Null when nothing is staged.
 scoped_refptr<LaunchErase> PanicWipeAtLaunch(
     const base::FilePath& data_directory,
     const base::CommandLine& command_line,

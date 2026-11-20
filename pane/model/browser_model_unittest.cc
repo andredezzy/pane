@@ -33,8 +33,7 @@ namespace {
 // "an unloaded tab keeps nothing of its page" is not ported, nor what
 // "removing a tab…" checked of the tab's page: what a live page is lives in
 // its WebContents, which an unload or a close destroys, and the Swift model's
-// mirrors of it are not ported (docs/plans/views-migration.md, What never gets
-// ported).
+// mirrors of it are not ported (docs/benchmarks/panekit-tests.md).
 
 using Ids = std::vector<std::string>;
 

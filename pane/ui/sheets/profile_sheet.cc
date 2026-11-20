@@ -375,7 +375,7 @@ class ProfileSheet::Reveal : public views::View {
     SetVisible(false);
     // Out of what a screen reader reaches while hidden, its content with it:
     // Views still gave UI Automation the proxy's four fields, hidden in it,
-    // and Narrator read them with the proxy off (W8c).
+    // and Narrator read them with the proxy off (commit 490757e).
     LeaveOutOfAccessibility(*this, true);
   }
 

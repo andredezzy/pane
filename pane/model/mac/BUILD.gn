@@ -1,13 +1,13 @@
 # Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-# The Mac's own part of Pane's model (docs/plans/views-migration.md, Phase 2,
-# C4 and C6), ported from the Swift PaneKit test by test: the encrypted
-# volume, the vault's place in it, what the panic wipe takes besides the data,
-# and the paths every earlier Pane on the Mac updates by (ADR 0122); the
-# Keychain's secret through Chromium's own code, and the volume's watchdog.
-# The lock, the vault's sequences, the data's lock, and the wipe's order are
-# //pane/model's, shared with Windows (W3). No Pane ever ran on Windows (U5),
-# so none of this builds there.
+# The Mac's own part of Pane's model, ported from the Swift PaneKit test by test
+# (docs/benchmarks/panekit-tests.md): the encrypted volume, the vault's place in
+# it, what the panic wipe takes besides the data, and the paths every earlier
+# Pane on the Mac updates by (ADR 0122); the Keychain's secret through
+# Chromium's own code, and the volume's watchdog. The lock, the vault's
+# sequences, the data's lock, and the wipe's order are //pane/model's, shared
+# with Windows (ADR 0121). Windows has no volume and no earlier Pane's data
+# (ADR 0124's U5), so none of this builds there.
 
 assert(is_mac)
 

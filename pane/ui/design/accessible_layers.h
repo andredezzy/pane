@@ -32,7 +32,7 @@ void UpdateAccessibleLayers(
 // drawn as it goes counts as gone: the profile sheet sliding out, a dialog
 // fading, the PIN screen sinking. While one goes, a screen reader had it
 // alone: VoiceOver kept its cursor there and moved the keys back into it, so
-// they stayed in the sheet once it hid (W9b).
+// they stayed in the sheet once it hid (commit 64049b2).
 void UpdateAccessibleLayers(
     views::View& parent,
     base::FunctionRef<bool(const views::View&)> is_modal,
@@ -42,7 +42,7 @@ void UpdateAccessibleLayers(
 // a layer under a modal one is (a leaf, and ignored), or brings it back as it
 // was. For a view that hides views showing in it, which Views can still give
 // a screen reader: the profile sheet's proxy fields, hidden in their Reveal,
-// were read with the proxy off, their frames empty (W8c).
+// were read with the proxy off, their frames empty (commit 490757e).
 void LeaveOutOfAccessibility(views::View& view, bool out);
 
 }  // namespace pane

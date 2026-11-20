@@ -27,15 +27,15 @@ class BrowserModel;
 }  // namespace model
 
 // Each profile's context in the engine (the Swift app's ProfileContexts and
-// ContextClosing, docs/plans/views-migration.md, N3): a Chrome profile, held
-// while open (BrowserContext). It opens on first use, and only once the
-// volume is attached and the profile's folders, links, and files are up to
-// date (the vault's Prepare, ADR 0113 and 0121), the single way a profile
-// reaches the engine: its fingerprint set, its caches kept in memory when it
-// saves no history, the engine opens it under its key, its history choice
-// and a clear it owes reach it, and its proxy goes on before any of its
-// pages loads (ADR 0037). A lock closes every one, waiting for one that is
-// opening (ADR 0116). On the window's sequence.
+// ContextClosing, commit db6b675): a Chrome profile, held while open
+// (BrowserContext). It opens on first use, and only once the volume is attached
+// and the profile's folders, links, and files are up to date (the vault's
+// Prepare, ADR 0113 and 0121), the single way a profile reaches the engine: its
+// fingerprint set, its caches kept in memory when it saves no history, the
+// engine opens it under its key, its history choice and a clear it owes reach
+// it, and its proxy goes on before any of its pages loads (ADR 0037). A lock
+// closes every one, waiting for one that is opening (ADR 0116). On the window's
+// sequence.
 class ProfileContexts {
  public:
   // What a profile's close does to the window's pages: a profile turned off

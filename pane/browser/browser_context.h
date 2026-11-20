@@ -21,9 +21,9 @@ namespace pane {
 // (ADR 0006), held loaded while Pane shows it, as an open window holds one,
 // and what Pane sets on it. The Swift app's BrowserContext, which the
 // bridge's PaneBrowserContext made in Objective-C, in plain C++
-// (docs/plans/views-migration.md, N3). ProfileContexts holds one per open
-// profile, made as it opens (ApplyProfileDefaults and the fingerprint's
-// languages are set on it then) and gone as it closes. On the UI thread.
+// (commit db6b675). ProfileContexts holds one per open profile, made as it
+// opens (ApplyProfileDefaults and the fingerprint's languages are set on it
+// then) and gone as it closes. On the UI thread.
 class BrowserContext {
  public:
   // Holds `profile` loaded until the hold is taken (TakeKeepAlive) or this

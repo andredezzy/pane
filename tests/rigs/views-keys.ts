@@ -3,18 +3,18 @@ import { PRIMARY } from "../lib/platform";
 import { poll } from "../lib/poll";
 import { expect, type Scenario } from "../run";
 
-// G6 and H7 on the Views build (docs/plans/views-migration.md, Phases 1 and
-// 3): keys with no router, through the menu bar's key equivalents, the
-// window's FocusManager, and the page's PreHandleKeyboardEvent. ⌘T goes
-// ahead of the page and ⌘L to the page first, as the Swift ordered them (ADR
-// 0019): a page that takes ⌘L keeps it, and one that would take ⌘T never
-// sees it. A key typed right behind ⌘T lands in the new tab's address; ⌘1 to
-// ⌘8 choose a profile's tab by its place, none past its last (the Swift's
-// selectTab(atIndex:)), and ⌘9 its last (Chrome's and Safari's, the user's
-// call); Esc and Return close the sheet; Quit Pane? takes
-// every key, the menu bar's included, but ⌘Q; the switcher opens on Ctrl-Tab
-// and chooses on Ctrl's release. Real keys, posted through the window's event
-// path, so the window must be in front (run.ts --foreground).
+// The keys on the Views build (commits c15c620 and 3f62f15): keys with no
+// router, through the menu bar's key equivalents, the window's FocusManager,
+// and the page's PreHandleKeyboardEvent. ⌘T goes ahead of the page and ⌘L to
+// the page first, as the Swift ordered them (ADR 0019): a page that takes ⌘L
+// keeps it, and one that would take ⌘T never sees it. A key typed right behind
+// ⌘T lands in the new tab's address; ⌘1 to ⌘8 choose a profile's tab by its
+// place, none past its last (the Swift's selectTab(atIndex:)), and ⌘9 its last
+// (Chrome's and Safari's, the user's call); Esc and Return close the sheet;
+// Quit Pane? takes every key, the menu bar's included, but ⌘Q; the switcher
+// opens on Ctrl-Tab and chooses on Ctrl's release. Real keys, posted through
+// the window's event path, so the window must be in front (run.ts
+// --foreground).
 const viewsKeys: Scenario = async (context) => {
 	if (!context.foreground) {
 		context.defer("every key: it needs Pane in front (run.ts --foreground)");

@@ -94,7 +94,8 @@ const sidebarResize: Scenario = async (context) => {
 
 	// By its keys, once a screen reader has focused it: a tenth of its range
 	// a step, as Views' sliders step, Right and Up wider, Left and Down
-	// narrower, held at its limits (W8c: no key moved it on Windows).
+	// narrower, held at its limits (until commit f475f04 no key moved it on
+	// Windows).
 	await first.send("screenReaderFocus", { name: "pane.sidebar.resize" });
 
 	for (const [key, width] of [

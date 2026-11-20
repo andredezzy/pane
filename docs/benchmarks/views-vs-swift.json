@@ -1,5 +1,5 @@
 {
-	"what": "K2b (docs/plans/views-migration.md, Phase 4): the final tree's Views build (main at 1f2ea43 with K2b's fixes) against the published 0.19.2, on an M5 Pro on 2026-11-11, by Phase 1's budgets (tests/ab.ts, 3 rounds taking turns: launch, unlock, pages, memory, scroll, frame-latency); the keys in the background by the cmdt-probe's ab-key-timing, three runs each, taking turns; the scenarios' runs; the renders against the Swift's.",
+	"what": "The first Views release's candidate (2026-11-11, commit eb35b47; views-vs-swift.md): the final tree's Views build (main at 1f2ea43 with that commit's fixes) against the published 0.19.2, on an M5 Pro on 2026-11-11, by the budgets the prototype's gate set (tests/ab.ts, 3 rounds taking turns: launch, unlock, pages, memory, scroll, frame-latency); the keys in the background by the cmdt-probe's ab-key-timing, three runs each, taking turns; the scenarios' runs; the renders against the Swift's.",
 	"budgets": [
 		{
 			"measure": "Launch to first window, cold",

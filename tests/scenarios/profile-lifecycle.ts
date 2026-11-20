@@ -197,7 +197,8 @@ const profileLifecycle: Scenario = async (context) => {
 	);
 
 	// The deletion clears Chromium's crash list with the profile's history,
-	// which made Chromium's crash folder, empty, outside Pane's data (W9a):
+	// which made Chromium's crash folder, empty, outside Pane's data (found by
+	// hand on Windows, 2026-11-16):
 	// Pane keeps none (ADR 0115).
 	await Bun.sleep(1_000);
 

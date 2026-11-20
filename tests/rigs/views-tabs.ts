@@ -3,11 +3,11 @@ import { poll } from "../lib/poll";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
-// H5, the tabs (docs/plans/views-migration.md, Phase 3), on the Views build,
-// in the background. Its renders, for the Swift's: the tab switcher with two
-// groups (surfaces' switcher-open), one group (shortcuts' switcher), one tab
-// alone, and its selection moved on; and the sad tab (surfaces'
-// sad-tab-crashed). For the Views build, from out/Release:
+// The tabs (commit 31466b4), on the Views build, in the background. Its
+// renders, for the Swift's: the tab switcher with two groups (surfaces'
+// switcher-open), one group (shortcuts' switcher), one tab alone, and its
+// selection moved on; and the sad tab (surfaces' sad-tab-crashed). For the
+// Views build, from out/Release:
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> [--appearance light|dark] tests/rigs/views-tabs.ts

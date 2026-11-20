@@ -3,16 +3,15 @@ import { PRIMARY } from "../lib/platform";
 import { waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
 
-// H7, keys and menus (docs/plans/views-migration.md, Phase 3), on the Views
-// build, in the background. The menu bar as it shows, item for item against
-// the Swift's MainMenu, and the enabled states its validation gave, behind
-// the Lock too; items chosen through the real menu bar, as a click chooses
-// them; Quit Pane? asked by ⌘Q, a key posted through AppKit's queue, which
-// the menu bar takes as it takes the user's, with Views' own dispatch of the
-// keys it then holds, and its renders, for the Swift's surfaces-quit-confirm;
-// and the switcher opened by Ctrl-Tab and chosen by Ctrl's release, rendered
-// under Ctrl, for the Swift's shortcuts switcher. For the Views build, from
-// out/Release:
+// Keys and menus (commit 3f62f15), on the Views build, in the background. The
+// menu bar as it shows, item for item against the Swift's MainMenu, and the
+// enabled states its validation gave, behind the Lock too; items chosen through
+// the real menu bar, as a click chooses them; Quit Pane? asked by ⌘Q, a key
+// posted through AppKit's queue, which the menu bar takes as it takes the
+// user's, with Views' own dispatch of the keys it then holds, and its renders,
+// for the Swift's surfaces-quit-confirm; and the switcher opened by Ctrl-Tab
+// and chosen by Ctrl's release, rendered under Ctrl, for the Swift's shortcuts
+// switcher. For the Views build, from out/Release:
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> [--appearance light|dark] tests/rigs/views-menus.ts

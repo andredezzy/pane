@@ -6,9 +6,9 @@ import { imagesAttachedIn, mountedAt } from "../lib/tools";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
-// Phase 2's model and data on the Views build (docs/plans/views-migration.md,
-// C2 to C6): the model (BrowserModel) loaded from and saved to its files
-// (ModelStore), the profiles opened through the vault, and the lock.
+// The model and data on the Views build (commits 4d419e2 to 94040f0): the model
+// (BrowserModel) loaded from and saved to its files (ModelStore), the profiles
+// opened through the vault, and the lock.
 //
 // - Two profiles with tabs, made through the channel, a theme changed, saved:
 //   profiles.json is one sealed box, no profile, page, or title of it in the

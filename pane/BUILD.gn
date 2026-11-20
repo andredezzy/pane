@@ -2,7 +2,7 @@
 
 # The //pane tree: Pane's layer over Chromium's chrome/ layer, and its UI in
 # Views, linked through //chrome:chrome_dll into Pane Framework.framework on
-# the Mac, and into chrome.dll on Windows (docs/plans/views-migration.md, W1).
+# the Mac, and into chrome.dll on Windows (ADR 0124).
 
 source_set("pane") {
   visibility = [ "//chrome:chrome_dll" ]
@@ -255,8 +255,8 @@ source_set("pane") {
     ]
   }
 
-  # Windows' platform files: each says which item of Phase 5 fills it, where
-  # it is not done yet (docs/plans/views-migration.md).
+  # Windows' platform files: each says what is still to come there, where it is
+  # not done yet.
   if (is_win) {
     sources += [
       "app/data_launch_win.cc",

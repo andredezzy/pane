@@ -126,7 +126,7 @@ TEST_F(AccessibleLayersTest, WhatWasIgnoredBeforeStaysSo) {
 
 // The profile sheet sliding out, still drawn: gone to a screen reader with
 // its controls as it starts to go, and what is under it back at once, so
-// VoiceOver's cursor, and the keys it moves, can't stay in it (W9b).
+// VoiceOver's cursor, and the keys it moves, can't stay in it (commit 64049b2).
 TEST_F(AccessibleLayersTest, ALayerOnItsWayOutIsGoneAlready) {
   views::View window;
   views::View* page = AddLayer(window, u"Web content");

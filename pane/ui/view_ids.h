@@ -51,7 +51,7 @@ enum ViewId : int {
   kViewIdSidebarNew,
   kViewIdSidebarSettings,
   kViewIdSidebarResize,
-  // The copy of a dragged row that rides the pointer (H3).
+  // The copy of a dragged row that rides the pointer (ADR 0066).
   kViewIdDragCopy,
   // The update pill in the sidebar's footer, its button (download, restart,
   // or quit and install), and its dismiss.

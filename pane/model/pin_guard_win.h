@@ -8,7 +8,7 @@
 namespace pane::model {
 
 // What a status of the Microsoft Platform Crypto Provider means for the PIN's
-// guard on Windows (pin_guard_win.cc), as probed in the test VM (W3, W8):
+// guard on Windows (pin_guard_win.cc), as probed in the test VM (ADR 0113):
 // only a key lost reads as gone, the chip's lockout as a lockout, and
 // anything else as the chip refusing for now, or as no chip where TPM Base
 // Services see no TPM 2.0 (`has_chip` false). `status` is a SECURITY_STATUS.

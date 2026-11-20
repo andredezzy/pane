@@ -9,10 +9,10 @@ import {
 } from "../lib/windows";
 import { expect, type Scenario } from "../run";
 
-// G3 on the Views prototype (docs/plans/views-migration.md, Phase 1): the
-// page in the window's one WebView, checked as E7 checked the Swift app's
-// (62 µs to hit test, a resize step in 1.55 ms, its accessibility elements),
-// all without input, so it runs in the background:
+// The page on the Views prototype (commit 53cb0d3): the page in the window's
+// one WebView, checked as the Swift app's was when commit 18ba113 put its view
+// in a NativeViewHost (62 µs to hit test, a resize step in 1.55 ms, its
+// accessibility elements), all without input, so it runs in the background:
 // - who takes a press, and how long the platform takes to find out;
 // - the window resized a step at a time, the page following each step;
 // - the accessibility tree a screen reader reads: Pane's controls and the

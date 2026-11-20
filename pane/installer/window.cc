@@ -1682,7 +1682,7 @@ class InstallWindow::Impl {
           // The first screen's message, said once, after the name a screen
           // reader says as it comes: an event raised before any client has
           // reached the window goes nowhere, so the first activation's went
-          // unsaid (W8c).
+          // unsaid (commit 490757e).
           if (!description_said_) {
             description_said_ = true;
             ::SetTimer(hwnd_, kDescriptionTimer, kDescriptionMilliseconds,

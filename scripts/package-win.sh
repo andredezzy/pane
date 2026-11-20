@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Packages Pane for Windows (W7, Pane's own install): lays out the app's
+# Packages Pane for Windows (Pane's own install, ADR 0127): lays out the app's
 # folder as an install puts it at %LOCALAPPDATA%\Programs\Pane\Application,
 # as packaging/windows/pane.release lists it: the engine's files from its
 # build (out/Win, or an unpacked engine archive), Pane's version beside
@@ -107,7 +107,7 @@ rm -f "$ARCHIVE"
 # installer then unpacks each straight into its own file, with no temporary
 # copy of the whole folder beside it, and its bar follows the bytes as they
 # go; 141 MB where one block was 136, unpacked a tenth slower by 7-Zip
-# (p5-w7b-notes.md).
+# (measured 2026-11-15, commit 6d66278).
 (
 	cd "$APP"
 	"$SEVEN_ZIP" a -t7z -ms=off \

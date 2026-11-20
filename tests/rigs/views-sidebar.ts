@@ -8,16 +8,16 @@ import {
 import { captureWindow } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
-// H2, the sidebar (docs/plans/views-migration.md, Phase 3), on the Views
-// build, in the background. Its renders, for the Swift's (surfaces'
-// window-two-profiles and sidebar-overflow-end and -middle) and Paper 03.1 to
-// 03.3's states (a row under the pointer, Settings shown, the delete alert);
-// and what its rows do: the favicon a page sends, drawn and saved; a tab
-// without a page dimmed; a tab's X, a real click under the pointer, closing
-// it; the row menus' items, checks, and icons, and what each chosen item does;
-// the delete alert, the system's sheet, its Cancel keeping the profile and its
-// Delete deleting it; a profile's header, clicked, collapsing it; Settings.
-// For the Views build, from out/Release:
+// The sidebar (commit 2e2840d), on the Views build, in the background. Its
+// renders, for the Swift's (surfaces' window-two-profiles and
+// sidebar-overflow-end and -middle) and Paper 03.1 to 03.3's states (a row
+// under the pointer, Settings shown, the delete alert); and what its rows do:
+// the favicon a page sends, drawn and saved; a tab without a page dimmed; a
+// tab's X, a real click under the pointer, closing it; the row menus' items,
+// checks, and icons, and what each chosen item does; the delete alert, the
+// system's sheet, its Cancel keeping the profile and its Delete deleting it; a
+// profile's header, clicked, collapsing it; Settings. For the Views build, from
+// out/Release:
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> [--appearance light|dark] tests/rigs/views-sidebar.ts
@@ -111,7 +111,7 @@ const viewsSidebar: Scenario = async (context) => {
 		);
 	}
 
-	// The proxies' last tests, which the proxy's port (N2) runs.
+	// The proxies' last tests, which the proxy's port (ADR 0037) runs.
 	for (const [profile, status] of [
 		[proxied, "connected"],
 		[refused, "failed"],
@@ -262,8 +262,8 @@ const viewsSidebar: Scenario = async (context) => {
 	// The pointer off the list, over the page, and the list's overlay scroll
 	// bar gone (ADR 0128): the drag let go at the sidebar's edge, where the
 	// bar and the edge's handle meet, and on Windows, once the system's own
-	// move after the drag no longer reached the copy (W10f), the bar was
-	// hovered, fading, or gone by the run's timing.
+	// move after the drag no longer reached the copy (commit dde4090), the bar
+	// was hovered, fading, or gone by the run's timing.
 	await app.send("hoverWindow", { x: 700, y: 400 });
 	await app.render("sidebar-overflow-end.png", SCROLL_BAR_GONE_MS);
 	frames = await app.frames();

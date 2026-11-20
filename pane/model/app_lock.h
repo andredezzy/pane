@@ -191,12 +191,13 @@ class AppLock {
   };
 
   // The Keychain's secret as the launch looked for it, before the engine's
-  // OSCrypt first reads it (docs/plans/views-migration.md, C5): made there the
-  // first time, and only there, since Chromium's GetPassword updates an item
-  // that appears between its find and its add, so a second maker could leave
-  // the Keychain one secret and the key sealed under the other. The key opens
-  // with it, the Keychain asked nothing more; without one, the lock only looks
-  // for it, and says so when the Keychain gives none (Paper 07.7).
+  // OSCrypt first reads it (PaneMainDelegate::BasicStartupComplete, ADR 0010):
+  // made there the first time, and only there, since Chromium's GetPassword
+  // updates an item that appears between its find and its add, so a second
+  // maker could leave the Keychain one secret and the key sealed under the
+  // other. The key opens with it, the Keychain asked nothing more; without one,
+  // the lock only looks for it, and says so when the Keychain gives none (Paper
+  // 07.7).
   struct LaunchSecret {
     std::optional<std::vector<uint8_t>> secret;
   };
@@ -270,7 +271,8 @@ class AppLock {
   void TryAgain();
   // Keep earlier PIN, Keep PIN, or Cancel: the seal the disk holds stays in
   // force, written again; a key the chip made for the new PIN goes only once
-  // both files hold it (W8's rule the other way round), and the screen sinks.
+  // both files hold it (AnUnsavedSealKeepsTheEarlierKey's rule the other way
+  // round), and the screen sinks.
   void KeepSaved();
 
   // What the fifth wrong PIN at the lock does once the key is gone from

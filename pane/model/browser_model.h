@@ -38,7 +38,7 @@ namespace pane::model {
 // What a live page is (loaded, its progress, back and forward, crashed, in
 // picture in picture, with DevTools open) is the engine's, read from the
 // tab's WebContents: the Swift model's mirrors of it are not ported
-// (docs/plans/views-migration.md, What never gets ported).
+// (docs/benchmarks/panekit-tests.md).
 class BrowserModel {
  public:
   enum class Page { kBrowser, kSettings };

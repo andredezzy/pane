@@ -2,15 +2,14 @@ import { launchPane, type PaneApp, tabOf } from "../lib/pane";
 import { silentServer } from "../lib/proxies";
 import { expect, type Scenario } from "../run";
 
-// H4, the toolbar (docs/plans/views-migration.md, Phase 3), on the Views
-// build, in the background. Its renders, for the Swift's (surfaces'
-// toolbar-loading-start, toolbar-loading-slow, toolbar-address-focused,
-// window-two-profiles' row, update-pill-available, updates-downloading and
-// -downloaded; updates' update-pill) and for Paper 03.3 and 03.4's states the
-// renders miss: Back taking presses, under the pointer and pressed; the
-// address under the pointer; a new tab's address; the pill under the
-// pointer, over its X, and downloading under the pointer. For the Views
-// build, from out/Release:
+// The toolbar (commit d691180), on the Views build, in the background. Its
+// renders, for the Swift's (surfaces' toolbar-loading-start,
+// toolbar-loading-slow, toolbar-address-focused, window-two-profiles' row,
+// update-pill-available, updates-downloading and -downloaded; updates'
+// update-pill) and for Paper 03.3 and 03.4's states the renders miss: Back
+// taking presses, under the pointer and pressed; the address under the pointer;
+// a new tab's address; the pill under the pointer, over its X, and downloading
+// under the pointer. For the Views build, from out/Release:
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> [--appearance light|dark] tests/rigs/views-toolbar.ts

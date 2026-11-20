@@ -649,7 +649,7 @@ SettingsView::SettingsView(Callbacks callbacks, AppIconImages& images)
       u"Trim cache", kCacheBudget, &model::AppSettings::cache_budget_mb,
       kViewIdSettingsCacheBudget);
 
-  // The PIN's buttons open the Lock's PIN screen (L1 draws it).
+  // The PIN's buttons open the Lock's PIN screen (LockScreenView draws it).
   const auto pin_button = [this](Row* row, const std::u16string& title,
                                  model::PinEntry::Mode mode, int id) {
     TextButton* button = row->AddControl(std::make_unique<TextButton>(

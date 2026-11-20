@@ -90,7 +90,7 @@ const viewsProfileSheet: Scenario = async (context) => {
 		// the overlay scroll bar a reveal's scroll showed gone (ADR 0128): on
 		// Windows a render 0.8 s after a press caught its fade's end in one run
 		// of two, once the system's own pointer no longer reached the copy
-		// (W10f).
+		// (commit dde4090).
 		const render = async (name: string) => {
 			const sheet = await frame("pane.profileSheet");
 			await app.send("hoverWindow", { x: sheet.x + 32, y: sheet.y + 28 });

@@ -300,9 +300,9 @@ void ToolbarView::Layout(PassKey) {
   }
   const int address_x = reload_->bounds().right() + kSpacing;
 
-  // From the trailing edge: the chip, then X1's actions, each 4 apart; 4
-  // before the room kept at the end, where Windows' caption buttons sit
-  // (Paper 11.1's B), flush with the panel's edge.
+  // From the trailing edge: the chip, then the extensions' actions (ADR 0054),
+  // each 4 apart; 4 before the room kept at the end, where Windows' caption
+  // buttons sit (Paper 11.1's B), flush with the panel's edge.
   int right = end_reserve_ > 0 ? width() - end_reserve_ - kSpacing
                                : width() - kTrailing;
   if (chip_->GetVisible()) {

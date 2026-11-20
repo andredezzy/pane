@@ -7,18 +7,18 @@ import { pageResult, waitForSheet } from "../lib/surfaces";
 import { clickAt } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
-// What Chrome asks for, first half (docs/plans/views-migration.md, Phase 3),
-// on the Views build, in the background: every page's dialog drawn as
-// `surfaces-dialog-<state>.png`, the names tests/rigs/surfaces.ts gave the
-// Swift's renders, in the run's appearance (run.ts --appearance light|dark,
-// one --out folder each), and states those renders miss (a field being
-// edited, a message long enough to scroll); what VoiceOver reads of a dialog
-// (ADR 0071); where Chrome's own tab-modal dialogs would show; and, timed by
-// the app's signposts from Chrome's hook to the frame, a JavaScript alert's
-// first frame ("Page dialog") and a permission prompt's ("Permission
-// prompt"); and the switcher over a page's dialog, which takes Esc first, the
-// dialog's Esc then (Views' own dispatch in the background, posted with
-// --foreground). For the Views build, from out/Release:
+// What Chrome asks for, first half (commit 7fc49c1), on the Views build, in the
+// background: every page's dialog drawn as `surfaces-dialog-<state>.png`, the
+// names tests/rigs/surfaces.ts gave the Swift's renders, in the run's
+// appearance (run.ts --appearance light|dark, one --out folder each), and
+// states those renders miss (a field being edited, a message long enough to
+// scroll); what VoiceOver reads of a dialog (ADR 0071); where Chrome's own
+// tab-modal dialogs would show; and, timed by the app's signposts from Chrome's
+// hook to the frame, a JavaScript alert's first frame ("Page dialog") and a
+// permission prompt's ("Permission prompt"); and the switcher over a page's
+// dialog, which takes Esc first, the dialog's Esc then (Views' own dispatch in
+// the background, posted with --foreground). For the Views build, from
+// out/Release:
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir>/light --appearance light tests/rigs/views-dialogs.ts

@@ -12,7 +12,7 @@ std::vector<base::FilePath> RootsOf(const base::FilePath& user_data_dir) {
 
   // As NTFS has it: long names for short ones, junctions followed, the case on
   // disk, from a handle on the folder. No volume: Windows' promise rests on
-  // the PIN alone (docs/plans/views-migration.md, U5).
+  // the PIN alone (ADR 0124's U5).
   base::FilePath normalized;
 
   if (base::NormalizeFilePath(user_data_dir, &normalized)) {

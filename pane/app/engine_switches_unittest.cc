@@ -115,8 +115,8 @@ TEST(EngineSwitchesTest, UsersLaunchKeepsPanesOwnSwitches) {
 }
 
 // Every launch skips Chrome's check of a profile's folder on a network share,
-// whose bubble is Chrome's own UI at a BrowserView's app menu (W8): the user's
-// and a scenario's alike.
+// whose bubble is Chrome's own UI at a BrowserView's app menu (ADR 0010): the
+// user's and a scenario's alike.
 TEST(EngineSwitchesTest, NoNetworkProfileBubble) {
   for (const base::CommandLine& command_line :
        {Launch({}), Launch({"use-mock-keychain"})}) {

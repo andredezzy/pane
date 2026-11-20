@@ -28,9 +28,9 @@ void DockIcon::Show(model::AppIcon setting) {
 // Read on the turn after the notification, once every observer of the
 // theme's change has run and what it changed has settled: on Windows the
 // Automatic sky once stayed Night for minutes after Windows went light, the
-// window light (W9a, windows-install in the test VM), where a read at the
-// notification found the sky it already wanted and did nothing. Several
-// notifications in a turn read once.
+// window light (found by hand on Windows, 2026-11-16, and by windows-install in
+// the test VM), where a read at the notification found the sky it already
+// wanted and did nothing. Several notifications in a turn read once.
 void DockIcon::OnNativeThemeUpdated(ui::NativeTheme* observed_theme) {
   if (std::exchange(apply_posted_, true)) {
     return;

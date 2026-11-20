@@ -66,7 +66,7 @@ const followsTheSystem = bySystem({
 			// shell maps it while it reads it for Pane's taskbar button. A
 			// rewrite refused meanwhile (ERROR_USER_MAPPED_FILE) is tried again,
 			// where it once stayed on Night until Windows' next change, the
-			// taskbar's button with it (W9a, W9d; W10a).
+			// taskbar's button with it (ADR 0089).
 			const link = startShortcut(app.home);
 			expect(existsSync(link), `no Start shortcut in the copy's home: ${link}`);
 

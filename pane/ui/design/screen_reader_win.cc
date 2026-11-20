@@ -7,7 +7,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 
 // Windows': what Narrator reads right through UI Automation, as it reads
-// ARIA's same roles (W8c).
+// ARIA's same roles (ADR 0071; commit 490757e).
 
 namespace pane::screen_reader {
 
@@ -25,7 +25,7 @@ void SetChoice(views::ViewAccessibility& choice, int position, int count) {
   choice.SetSetSize(count);
   // Unchosen until SetChosen says otherwise: a radio button with no checked
   // state has no selection in UI Automation, and Narrator said no
-  // "non-selected" of the colors not chosen (W8c).
+  // "non-selected" of the colors not chosen (commit 490757e).
   choice.SetCheckedState(ax::mojom::CheckedState::kFalse);
 }
 

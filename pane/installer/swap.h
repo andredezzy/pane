@@ -105,7 +105,8 @@ class PaneProcesses {
   void Adopt();
 
   // Ends those still running: what outlived Pane's browser, an idle renderer
-  // (W5j, W8a, W7a found them), a notification helper.
+  // (the test VM's rounds of 2026-11-14 and 2026-11-15 found them), a
+  // notification helper.
   void End() const;
 
   // Whether a process from the folder runs that isn't one of them, nor

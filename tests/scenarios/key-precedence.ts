@@ -104,10 +104,10 @@ const keyPrecedence: Scenario = async (context) => {
 	await app.send("showPage", { page: "browser" });
 
 	// Quit Pane? over the extensions menu, in both orders, which needs Pane
-	// in front, and the menu, which X1 draws on the Views line.
+	// in front, and the menu, which the Views line draws since commit 6bf3b75.
 	if (!("extensionsMenu" in (await app.state()))) {
 		context.defer(
-			"Quit Pane? over the extensions menu: no extensions menu is drawn (X1)",
+			"Quit Pane? over the extensions menu: no extensions menu is drawn",
 		);
 
 		return;

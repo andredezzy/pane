@@ -145,9 +145,9 @@ const contextMenu: Scenario = async (context) => {
 	// A misspelled word: the spellchecker's suggestions replace it. The word
 	// must be one macOS's spellchecker rejects ("helo", "teh", "speling" pass
 	// it). On a locked screen either menu is accepted: macOS's spellchecker
-	// has flagged "recieve" there (L1's regression, 2026-11-11), and earlier
-	// runs read it as not flagging words there, so the plain edit menu, with
-	// Select All, which Chromium leaves out on a flagged word, is accepted too.
+	// has flagged "recieve" there (a run of 2026-11-11), and earlier runs read it
+	// as not flagging words there, so the plain edit menu, with Select All, which
+	// Chromium leaves out on a flagged word, is accepted too.
 	await page.evaluate(
 		"(() => { const field = document.getElementById('text'); field.focus(); const range = document.createRange(); range.selectNodeContents(field); range.collapse(false); const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range); })()",
 	);
@@ -158,8 +158,8 @@ const contextMenu: Scenario = async (context) => {
 	const locked = await isScreenLocked();
 
 	// The word is flagged once the system's spellchecker answers, in its own
-	// time: Windows' answered past 2 s in the test VM now and then (W8c, 1
-	// run of 5 alone), so on an unlocked screen the menu is asked again
+	// time: Windows' answered past 2 s in the test VM now and then (1 run of 5
+	// alone, 2026-11-16), so on an unlocked screen the menu is asked again
 	// until it has the word's items, 20 s at most; one without them goes by
 	// Esc first in front, where it shows.
 	const misspelled = await page.evaluate<Point>("misspelledPoint()");

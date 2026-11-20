@@ -17,7 +17,7 @@ bool ChangeSystemTimeZone(const std::string& zone) {
 }
 
 // What a screen reader asks of the application on Windows is UI Automation's,
-// W8's with Narrator (ADR 0071); no scenario that runs there asks for it.
+// checked with Narrator (ADR 0071); no scenario that runs there asks for it.
 void RequestEnhancedUserInterface() {}
 
 bool PostSystemEvent(const std::string& event) {

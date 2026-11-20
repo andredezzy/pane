@@ -80,7 +80,7 @@ std::string NewTabKey(const std::string& profile_id) {
 }  // namespace
 
 // The list's contents: its rows from their top left, as tall as they are,
-// and a drag's copy over them (H3), which rides in the rows' coordinates.
+// and a drag's copy over them (ADR 0066), which rides in the rows' coordinates.
 class SidebarView::ListContents : public views::View {
   METADATA_HEADER(ListContents, views::View)
 

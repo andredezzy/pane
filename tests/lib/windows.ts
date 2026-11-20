@@ -53,8 +53,7 @@ export const ownedWindowIds = bySystem({
 	windows: async (): Promise<number[]> => {
 		throw noWindowsSide(
 			"the windows a computer-use driver holds",
-			"W8",
-			"Windows' UI is driven through UI Automation, checked with Narrator (ADR 0071)",
+			"Windows' UI is driven through UI Automation, checked with Narrator, ADR 0071",
 		);
 	},
 });
@@ -63,8 +62,8 @@ export const ownedWindowIds = bySystem({
 // The icons Chrome's tray holds in the system's notification area for the
 // app's process, by id: Windows' alone (status_tray_win.cc), where an
 // extension that asks the "background" permission put Chrome's background
-// mode's (W8). Chrome makes no status item on the Mac (background_mode_manager.cc,
-// CreateStatusTrayIcon).
+// mode's (ADR 0010). Chrome makes no status item on the Mac
+// (background_mode_manager.cc, CreateStatusTrayIcon).
 export const trayIconsOf = bySystem({
 	mac: async (_pid: number): Promise<number[]> => [],
 	windows: async (pid: number): Promise<number[]> =>

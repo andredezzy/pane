@@ -57,7 +57,7 @@ class Switch : public views::Button {
   // views::Button: on or off, whatever the button's own state. Views' sets a
   // button checked while pressed and nothing otherwise, at every change of
   // its state, which read the switch off to a screen reader once the pointer
-  // left it (W8c: the profile sheet's Proxy read off while on).
+  // left it (the profile sheet's Proxy read off while on; commit 490757e).
   void UpdateAccessibleCheckedState() override;
 
  private:

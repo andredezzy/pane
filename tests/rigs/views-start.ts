@@ -21,22 +21,22 @@ export const notOnWindows: NotOnWindows = {
 		"the Views build's start on the Mac: the volume, the data's flock, and the guard's refusals proved under sandbox-exec, the Keychain denied",
 };
 
-// The Views build's start (docs/plans/views-migration.md, C5): before the
-// engine, what main.swift did, in its order, and the data's lock; once the
-// thread pool runs, the vault and the lock, which without a PIN open the data
-// key at once; and once the engine stops, the volume's detach. A launch on a
-// fresh data folder makes the volume's image there, attaches it, and opens it,
-// and its quit detaches it and lets go of the lock; the next launch attaches
-// the image as it starts and opens it with the key the first one sealed. A
-// data root derived from a home of the run's own takes an earlier
-// identifier's folder and drops the session caches there, and nowhere else.
-// The launch's guard (pane/app/test_copy.h): a test copy, its data in the
-// temporary folder by PANE_DATA_DIR or by a home of its own, is refused
-// without --use-mock-keychain, as 0.19.1's installer relaunches one, and the
-// mock keychain is refused on data outside the temporary folder; each exits
-// with 1 before it makes its data folder. With a watchdog beside the binary
-// (a packaged bundle's), it runs while Pane does, goes at the quit, and after
-// a kill detaches the image itself. For the Views build:
+// The Views build's start (commit bc730f7, ADR 0010): before the engine, what
+// main.swift did, in its order, and the data's lock; once the thread pool runs,
+// the vault and the lock, which without a PIN open the data key at once; and
+// once the engine stops, the volume's detach. A launch on a fresh data folder
+// makes the volume's image there, attaches it, and opens it, and its quit
+// detaches it and lets go of the lock; the next launch attaches the image as it
+// starts and opens it with the key the first one sealed. A data root derived
+// from a home of the run's own takes an earlier identifier's folder and drops
+// the session caches there, and nowhere else. The launch's guard
+// (pane/app/test_copy.h): a test copy, its data in the temporary folder by
+// PANE_DATA_DIR or by a home of its own, is refused without
+// --use-mock-keychain, as 0.19.1's installer relaunches one, and the mock
+// keychain is refused on data outside the temporary folder; each exits with 1
+// before it makes its data folder. With a watchdog beside the binary (a
+// packaged bundle's), it runs while Pane does, goes at the quit, and after a
+// kill detaches the image itself. For the Views build:
 //
 //   bun tests/run.ts --binary <Pane.app>/Contents/MacOS/Pane --out <dir> \
 //     tests/rigs/views-start.ts

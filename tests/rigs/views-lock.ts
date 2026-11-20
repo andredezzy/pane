@@ -14,17 +14,16 @@ import { signpostIntervals } from "../lib/signposts";
 import { accessibilityTree } from "../lib/windows";
 import { expect, type Scenario } from "../run";
 
-// L1, the PIN screen (docs/plans/views-migration.md, Phase 3), on the Views
-// build, in the background. Its renders in every state Paper 07.1 to 07.8
-// draws, named as the Swift's surfaces named theirs where it rendered them
-// (surfaces-pin-setup-empty … surfaces-lock-update-available), the rest by
-// Paper's boards: a digit's key under the pointer and pressed (03.6), the
-// data's move after the PIN (07.5), a key that won't read (07.6), and a
-// Keychain that won't give it (07.7); 07.8 is data-volume's. The numpad's
-// keys, Delete, Continue, and the back arrow by real presses, each read back
-// from what the PIN screen holds. Then how long a digit takes to its dot, a
-// wrong PIN to its shake, the right one to the Lock sinking, and Lock Pane
-// to the screen's first frame, from the app's signposts.
+// The PIN screen (commit 5324f01), on the Views build, in the background. Its
+// renders in every state Paper 07.1 to 07.8 draws, named as the Swift's
+// surfaces named theirs where it rendered them (surfaces-pin-setup-empty …
+// surfaces-lock-update-available), the rest by Paper's boards: a digit's key
+// under the pointer and pressed (03.6), the data's move after the PIN (07.5), a
+// key that won't read (07.6), and a Keychain that won't give it (07.7); 07.8 is
+// data-volume's. The numpad's keys, Delete, Continue, and the back arrow by
+// real presses, each read back from what the PIN screen holds. Then how long a
+// digit takes to its dot, a wrong PIN to its shake, the right one to the Lock
+// sinking, and Lock Pane to the screen's first frame, from the app's signposts.
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> [--appearance light|dark] tests/rigs/views-lock.ts

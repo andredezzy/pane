@@ -15,8 +15,8 @@ type TabInfo = { id: number; url: string; windowId: number } | null;
 // tab too, as in the Electron app. chrome.action.openPopup shows the popup in
 // the app's bubble, as the extension's button does. A popup open as its
 // profile is deleted closes with the profile's Browser. A build with no
-// extension popup yet (the Views line before X2) asks the worker alone, and
-// defers the rest.
+// extension popup yet (the Views line before commit 6bf3b75) asks the worker
+// alone, and defers the rest.
 const tabsApi: Scenario = async (context) => {
 	const { app, trace } = await launchTraced(context, "tabs-api", {
 		args: [`--load-extension=${PROBE}`],
@@ -39,7 +39,7 @@ const tabsApi: Scenario = async (context) => {
 			}
 
 			context.defer(
-				"the popup's view of the active tab, chrome.action.openPopup, and a popup closing with its profile: the extension's popup waits for X2",
+				"the popup's view of the active tab, chrome.action.openPopup, and a popup closing with its profile: the channel has no runExtensionAction",
 			);
 
 			return false;

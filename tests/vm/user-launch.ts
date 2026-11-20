@@ -463,8 +463,8 @@ const userLaunch: Scenario = async (context) => {
 			"an Engine folder beside the engine's",
 		);
 
-		// Chrome's profile shortcuts stay off (W8): its manager runs where the
-		// engine's folder is Chromium's default, as here, and made a Google
+		// Chrome's profile shortcuts stay off (ADR 0010): its manager runs where
+		// the engine's folder is Chromium's default, as here, and made a Google
 		// Profile.ico in each profile's folder and turned the desktop's Pane
 		// shortcut into one of its own for the Default profile.
 		const profileIcons = ["Default", ...profiles].filter((name) =>

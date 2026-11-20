@@ -176,8 +176,8 @@ TEST_F(WindowsIntegrationTest, DefaultAppsEntriesArePanes) {
 
 // Start's shortcut alone, as Register makes it, in a Start folder not there
 // yet, as a test copy's home has none at its first launch: what Chrome reads
-// to show its toasts through Windows (W10f). Nothing else is registered: no
-// desktop shortcut, toast activator, or uninstall entry.
+// to show its toasts through Windows (commit dde4090). Nothing else is
+// registered: no desktop shortcut, toast activator, or uninstall entry.
 TEST_F(WindowsIntegrationTest, MakesStartsShortcutAsTheInstallDoes) {
   base::FilePath start_menu;
   ASSERT_TRUE(base::PathService::Get(base::DIR_START_MENU, &start_menu));
@@ -310,7 +310,8 @@ TEST_F(WindowsIntegrationTest, UnregistersErasingTheData) {
 }
 
 // With no data to keep, as where its user deleted the folder: Chromium's key
-// goes whole, its preference MACs with it, which named nothing (W8d).
+// goes whole, its preference MACs with it, which named nothing (commit
+// f475f04).
 TEST_F(WindowsIntegrationTest, UnregistersWithNoDataLeavingNoMacs) {
   ASSERT_EQ(Register(chrome_exe_, data_, /*first_install=*/true),
             static_cast<DWORD>(ERROR_SUCCESS));
@@ -415,7 +416,7 @@ TEST_F(WindowsIntegrationTest, ShortcutsFollowTheAppIcon) {
 // A shortcut another program holds mapped, as Windows' shell maps Start's
 // while it reads it for the taskbar's button, can't be rewritten
 // (ERROR_USER_MAPPED_FILE): that one counts as failed, the others are
-// rewritten, and once it is let go the next pointing rewrites it (W10a).
+// rewritten, and once it is let go the next pointing rewrites it (ADR 0089).
 TEST_F(WindowsIntegrationTest, AShortcutHeldMappedIsReportedAndRewrittenLater) {
   ASSERT_EQ(Register(chrome_exe_, data_, /*first_install=*/true),
             static_cast<DWORD>(ERROR_SUCCESS));

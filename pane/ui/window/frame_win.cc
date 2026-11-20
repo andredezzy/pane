@@ -231,8 +231,8 @@ class TreeHost : public views::DesktopWindowTreeHostWin {
   // A sign-out, a restart, or a shutdown ends Pane with the session: Windows
   // ends the process once its windows have heard WM_ENDSESSION, and none of
   // Exit's steps run, so every toast of Pane's leaves Windows' center here as
-  // at Exit, where Windows keeps them through the session's end (W10g; ADR
-  // 0109). Ten milliseconds or so, before the system goes on.
+  // at Exit, where Windows keeps them through the session's end (ADR 0109). Ten
+  // milliseconds or so, before the system goes on.
   bool PreHandleMSG(UINT message,
                     WPARAM w_param,
                     LPARAM l_param,
@@ -386,9 +386,9 @@ std::string PlatformViewAt(views::Widget* widget, const gfx::Point& point) {
 }
 
 // Where the window was, kept between launches as the Mac keeps it in its
-// preferences, is still to come on Windows (left by W4: where Windows keeps
-// it, the registry or the data root, so a test copy never moves the user's,
-// is to decide): the window opens in the middle of the screen each time.
+// preferences, is still to come on Windows (where Windows keeps it, the
+// registry or the data root, so a test copy never moves the user's, is to
+// decide): the window opens in the middle of the screen each time.
 void KeepFrame(views::Widget* widget) {}
 
 // Minimize, Maximize or Restore, and Close, where the window shows them: in

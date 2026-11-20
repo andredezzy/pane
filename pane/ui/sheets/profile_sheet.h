@@ -40,19 +40,19 @@ class TextButton;
 // (RootView::ShowProfileSheet): the title and a close X, then, in a body
 // that scrolls between two rules, the name and the color, then Privacy,
 // Fingerprint, and Network in cards, then Cancel and Create (Save for an
-// edit). The sheet shows no Group (N1, the user's answer of 2026-11-11): a
-// saved one stays as it is.
+// edit). The sheet shows no Group (the user's answer of 2026-11-11): a saved
+// one stays as it is.
 //
 // The form is model::ProfileDraft, as the model checks and applies it.
 // Create with a problem saves nothing: the field that keeps it from saving is
-// ringed in red, with no words under it (memory field-problem-red-ring), and
-// brought into view, its words for the screen reader alone; the ring stays
-// until the field can save. A proxy string pasted, or typed and left, in the
-// host fills the address and credentials. Test connection fetches the proxy
-// test's echo through the proxy as filled in; its answer is about that
-// proxy, and goes as another is typed. What a switch shows or hides, and the
-// warning another platform than the computer's brings, comes and goes with
-// Motion.toggle, and a note that changes crossfades (Motion.status).
+// ringed in red, with no words under it (ADR 0120), and brought into view, its
+// words for the screen reader alone; the ring stays until the field can save. A
+// proxy string pasted, or typed and left, in the host fills the address and
+// credentials. Test connection fetches the proxy test's echo through the proxy
+// as filled in; its answer is about that proxy, and goes as another is typed.
+// What a switch shows or hides, and the warning another platform than the
+// computer's brings, comes and goes with Motion.toggle, and a note that changes
+// crossfades (Motion.status).
 class ProfileSheet : public views::View {
   METADATA_HEADER(ProfileSheet, views::View)
 

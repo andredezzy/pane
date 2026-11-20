@@ -1,8 +1,8 @@
 # Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
 # The command table the menu bar and the window's keys share, and the menu
-# bar made from it (docs/plans/views-migration.md, H7). A target of its own so
-# its tests run in pane_unittests, apart from the engine.
+# bar made from it (ADR 0019). A target of its own so its tests run in
+# pane_unittests, apart from the engine.
 
 source_set("commands") {
   visibility = [
@@ -64,7 +64,7 @@ source_set("handed_pages") {
   ]
 }
 
-# When Pane locks by itself (docs/plans/views-migration.md, L2; ADR 0116):
+# When Pane locks by itself (ADR 0116):
 # Chromium's screen lock, power, and idle time, and the platform's pair for
 # what nothing in Chromium hears. A target of its own so its tests run in
 # pane_unittests.

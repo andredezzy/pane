@@ -109,11 +109,12 @@ TEST_F(PinGuardWinTest, DISABLED_AWrongPinIsRefused) {
   EXPECT_EQ(guard_->Unseal(guarded->kept, "1234"), guarded->share);
 }
 
-// What each of the provider's answers means (W8), as the test VM gave them:
-// only a key lost reads as gone, a deleted key's and a cleared chip's
+// What each of the provider's answers means (ADR 0113), as the test VM gave
+// them: only a key lost reads as gone, a deleted key's and a cleared chip's
 // NTE_BAD_KEYSET at the open and a damaged key file's TPM_20_E_INTEGRITY at
 // the decrypt; anything else is the chip refusing for now, which loses
-// nothing (07.6.2), or no chip. Until W8 every other answer read as gone.
+// nothing (07.6.2), or no chip. Until commit fcd50d3 every other answer read as
+// gone.
 TEST(PinGuardRefusalsTest, OnlyAKeyLostReadsAsGone) {
   using Refusal = PinGuard::Refusal;
   EXPECT_EQ(RefusalAtOpen(NTE_BAD_KEYSET, true), Refusal::kGone);

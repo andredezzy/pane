@@ -2,14 +2,14 @@ import { framesDuring, statesByProcess } from "../lib/frames";
 import { launchPane } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
-// G4 on the Views prototype (docs/plans/views-migration.md, Phase 1): a
-// sheet and its scrim over a live page playing video, in one window. Where
-// the page lies under the sheet, a press goes to Views, not the page (asked
-// through `hitTest`, which reports who the platform hands a press, so no
-// input is needed in the background); the frames of the sheet's animation
-// are counted from Chromium's PipelineReporter while the video plays. With
-// the front (run.ts --foreground), a real key goes to the sheet, and a real
-// click on its scrim reaches no part of the page and closes it.
+// Over the page, on the Views prototype (commit 2985e76): a sheet and its scrim
+// over a live page playing video, in one window. Where the page lies under the
+// sheet, a press goes to Views, not the page (asked through `hitTest`, which
+// reports who the platform hands a press, so no input is needed in the
+// background); the frames of the sheet's animation are counted from Chromium's
+// PipelineReporter while the video plays. With the front (run.ts --foreground),
+// a real key goes to the sheet, and a real click on its scrim reaches no part
+// of the page and closes it.
 
 const viewsSheetOverVideo: Scenario = async (context) => {
 	const app = await launchPane(context);
@@ -76,7 +76,7 @@ const viewsSheetOverVideo: Scenario = async (context) => {
 		);
 
 		// A real click on the scrim reaches no part of the page and closes the
-		// sheet, as the Swift's tap on its scrim did (N1).
+		// sheet, as the Swift's tap on its scrim did.
 		await app.send("clickWindow", scrim);
 
 		await app.waitFor(

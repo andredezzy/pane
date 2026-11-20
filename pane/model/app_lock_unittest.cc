@@ -83,11 +83,12 @@ TEST_F(AppLockGuardTest, ThePinIsSealedWithTheChipsKey) {
   EXPECT_EQ(OpenDataKey(*Saved()->key, Bytes(kSecret), std::nullopt), key);
 }
 
-// A new seal that didn't reach the disk keeps the earlier key (W8): the seal
-// there still names it, and the earlier PIN opens it at the next launch.
-// Before, the chip's earlier key went all the same, a failed save leaving
-// the disk naming a key gone, and every profile with it. Since W8e the screen
-// says it (Paper 07.12), and Pane ends here without an answer.
+// A new seal that didn't reach the disk keeps the earlier key (commit fcd50d3):
+// the seal there still names it, and the earlier PIN opens it at the next
+// launch. Before, the chip's earlier key went all the same, a failed save
+// leaving the disk naming a key gone, and every profile with it. Since commit
+// 9e50b3c the screen says it (Paper 07.12), and Pane ends here without an
+// answer.
 TEST_F(AppLockGuardTest, AnUnsavedSealKeepsTheEarlierKey) {
   const Key key = SaveGuardedKey("1234");
   const std::string first = Saved()->key->guard->key;

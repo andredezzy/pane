@@ -21,7 +21,7 @@ namespace pane::model {
 namespace {
 
 // What Settings' Change and Remove PIN do with each answer Windows' provider
-// gives for the current PIN, as the test VM's chip gave them (W8,
+// gives for the current PIN, as the test VM's chip gave them (ADR 0113;
 // RefusalAtOpen and RefusalAtDecrypt), on the stand-in TPM.
 struct ChipAnswer {
   const char* name;

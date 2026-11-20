@@ -1,10 +1,10 @@
 # Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-# Pane's model and data, in plain C++ (docs/plans/views-migration.md, Phase
-# 2): the formats every Pane wrote, and the rules over them, ported from the
-# Swift PaneKit test by test. It depends on //base, //crypto, //url, RE2, ICU,
-# and gfx's geometry (its cubic Bézier) alone, so its tests run under the
-# sanitizers apart from the engine (pane_model_unittests).
+# Pane's model and data, in plain C++ (ADR 0124): the formats every Pane wrote,
+# and the rules over them, ported from the Swift PaneKit test by test. It
+# depends on //base, //crypto, //url, RE2, ICU, and gfx's geometry (its cubic
+# Bézier) alone, so its tests run under the sanitizers apart from the engine
+# (pane_model_unittests).
 
 import("//testing/test.gni")
 

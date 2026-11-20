@@ -8,8 +8,8 @@ import { waitForSheet } from "../lib/surfaces";
 import { launchTraced, type Traced } from "../lib/traced";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
-// Extensions, X1 and X2 (docs/plans/views-migration.md, Phase 3), on the
-// Views build, in the background:
+// Extensions' actions, menu, and popup (commit 6bf3b75), on the Views build, in
+// the background:
 // - the toolbar's pinned action and the puzzle, and the extensions menu
 //   (Paper 04.6) empty and with the probe, and its more menu (04.9), drawn
 //   with the pointer off them, under the names the Swift's renders took

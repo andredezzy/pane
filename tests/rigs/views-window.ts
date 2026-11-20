@@ -8,15 +8,15 @@ import {
 import { swiftTool } from "../lib/tools";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
-// H1, the window (docs/plans/views-migration.md, Phase 3), on the Views build,
-// in the background. Its renders, empty and with a page, for the Swift's
-// (profile-lifecycle's empty-state.png, surfaces' window-two-profiles.png);
-// its title following the shown page's, Pane without one; and its close
-// sequence and new windows: the close button, a real click, closes it, every
-// page with it and every tab kept (ADR 0016), and the app opened again (a
-// reopen, as a Dock click sends one, through Launch Services) or handed a
-// URL (ADR 0109) shows a new window, its selected tab's page made again,
-// its traffic lights in place. For the Views build, from out/Release:
+// The window (commit 080af7b), on the Views build, in the background. Its
+// renders, empty and with a page, for the Swift's (profile-lifecycle's
+// empty-state.png, surfaces' window-two-profiles.png); its title following the
+// shown page's, Pane without one; and its close sequence and new windows: the
+// close button, a real click, closes it, every page with it and every tab kept
+// (ADR 0016), and the app opened again (a reopen, as a Dock click sends one,
+// through Launch Services) or handed a URL (ADR 0109) shows a new window, its
+// selected tab's page made again, its traffic lights in place. For the Views
+// build, from out/Release:
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> [--appearance light|dark] tests/rigs/views-window.ts

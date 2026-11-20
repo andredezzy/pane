@@ -282,7 +282,8 @@ class UiApp::Page : public content::WebContentsObserver,
   // A load begun before this observed the page: Chrome's Navigate starts a
   // tab's load before it puts the tab in the strip (a restore at the unlock
   // or a launch, a woken tab), so its start came first, and nothing showed
-  // until a response did (W9c). It shows from the start, as any load does.
+  // until a response did (commit 64f022e). It shows from the start, as any load
+  // does.
   void ReportLoadUnderWay() {
     if (web_contents()->IsLoading()) {
       ReportLoading(web_contents()->GetLoadProgress());
@@ -513,7 +514,8 @@ UiApp::UiApp(base::CommandLine launch_toast)
   app_icons_->Load({model().settings().app_icon});
   network_service_watch_ = std::make_unique<NetworkServiceWatch>(this);
   // A scenario's copy shares the user's preferences, so its window neither
-  // reads nor saves the user's frame: 1280 × 800 at every launch (B0).
+  // reads nor saves the user's frame: 1280 × 800 at every launch (commit
+  // 8e0f0bb).
   window_ = std::make_unique<Window>(
       this,
       /*keeps_frame=*/!base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -1144,11 +1146,12 @@ void UiApp::NetworkServiceCrashed() {
 // A page Pane opened from its tab's saved address whose first load the
 // network service's crash aborted had no document and no load to wait for:
 // it stayed blank, as the tab the unlock restored did on Windows while its
-// error reporting held the dead service (W9a). It loads its address again, a
-// turn on, which starts the service anew: blank while the service is gone,
-// the page loading by itself once it is back. A load aborted otherwise (a
-// Stop, a newer load) stays as it is, and so does a page with a document,
-// whose load the crash cut short: it keeps that document, as in Chrome.
+// error reporting held the dead service (found by hand on Windows, 2026-11-16;
+// commit f81ca5f). It loads its address again, a turn on, which starts the
+// service anew: blank while the service is gone, the page loading by itself
+// once it is back. A load aborted otherwise (a Stop, a newer load) stays as it
+// is, and so does a page with a document, whose load the crash cut short: it
+// keeps that document, as in Chrome.
 void UiApp::LoadWhatTheCrashAborted() {
   const base::TimeTicks now = base::TimeTicks::Now();
   const bool crashed = !network_crashed_at_.is_null() &&
@@ -1813,8 +1816,8 @@ void UiApp::PageFaviconChanged(const std::string& tab_id,
 // holds (a page back from the back-forward cache), else none. With none,
 // the row draws the globe Pane draws for a tab with none, as Chrome's tab
 // shows its default icon, and the tab saves none, where the last page's
-// icon stayed and came back after a relaunch (W9a, W9b; the user's call,
-// 2026-11-17). An icon that comes after the load ends draws then.
+// icon stayed and came back after a relaunch (found by hand on each system; the
+// user's call, 2026-11-17). An icon that comes after the load ends draws then.
 void UiApp::PageIconAtLoadEnd(const std::string& tab_id,
                               const gfx::Image& entry_icon) {
   if (!entry_icon.IsEmpty()) {
@@ -2743,7 +2746,7 @@ void UiApp::OnUpdaterChanged() {
   shown_progress_ = progress;
 }
 
-// MARK: Extensions (X1, X2)
+// MARK: Extensions (ADR 0054)
 
 ExtensionsUi& UiApp::Extensions() {
   return *extensions_;

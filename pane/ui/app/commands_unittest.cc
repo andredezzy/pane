@@ -443,8 +443,8 @@ TEST(CommandsTest, AppFirstAsChromeReserves) {
 
 // Lock Pane's key, ⌃⌘L on the Mac and Ctrl+Shift+L on Windows, goes ahead of
 // the page, which never hears it: a page that kept it (Docs' and Sheets'
-// align left on Windows) left Pane open (W9a, W9b; the user's call,
-// 2026-11-17).
+// align left on Windows) left Pane open (found by hand on each system; the
+// user's call, 2026-11-17).
 TEST(CommandsTest, LockGoesAheadOfThePage) {
   const ui::Accelerator lock =
       ThisKeySystem() == KeySystem::kMac

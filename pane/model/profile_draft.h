@@ -56,8 +56,8 @@ struct ProfileDraft {
 
   // What saving writes into the profile. A fingerprint is generated only when
   // spoofing turns on or the platform changes (EditedFingerprint). The sheet
-  // shows no Group (N1, the user's answer of 2026-11-11): a saved `group`
-  // stays as it is, for 0.19.1 to read back.
+  // shows no Group (the user's answer of 2026-11-11): a saved `group` stays as
+  // it is, for 0.19.1 to read back.
   void ApplyTo(BrowserProfile& profile,
                base::FunctionRef<Fingerprint()> generate) const;
 

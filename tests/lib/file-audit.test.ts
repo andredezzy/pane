@@ -2,10 +2,10 @@ import { expect, test } from "bun:test";
 import { plainMarkers } from "./file-audit";
 
 // A LevelDB CURRENT that the engine wrote in a profile, from the probe of
-// 2026-11-15 (evidence/views-migration/runs/p5-fmig-current-notes.md): the
-// stream header (its magic, a random file id, and a check that matches the
-// profile's key), then MANIFEST-000002 under AES-256-CTR. 13 of those 16 bytes
-// are text's, so the audit read the file as plain.
+// 2026-11-15 (commit 6d19498): the stream header (its magic, a random file id,
+// and a check that matches the profile's key), then MANIFEST-000002 under
+// AES-256-CTR. 13 of those 16 bytes are text's, so the audit read the file as
+// plain.
 const ENGINE_CURRENT = Buffer.from(
 	"50414e455346310af353da3a90eb77fe298d43ebac845e462fdb14c8247b9ba03d6e480a234e3a1d7a09901876734055",
 	"hex",

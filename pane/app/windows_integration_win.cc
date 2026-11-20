@@ -85,7 +85,8 @@ class Words : public installer::TranslationDelegate {
   }
 };
 
-// The icon files beside chrome.exe (W7a's): the app's, and the documents'.
+// The icon files beside chrome.exe (packaging/windows/pane.release): the app's,
+// and the documents'.
 constexpr wchar_t kAppIcon[] = L"Pane.ico";
 constexpr wchar_t kPageIcon[] = L"PaneHTM.ico";
 constexpr wchar_t kPdfIcon[] = L"PanePDF.ico";
@@ -579,7 +580,7 @@ DWORD Unregister(const base::FilePath& chrome_exe,
 
   // Chromium's own key: all of it with the data, or where there is no data
   // to keep, or all but the data's preference MACs (an uninstall with no data
-  // kept them for nothing, W8d).
+  // kept them for nothing, commit f475f04).
   const std::wstring own = install_static::GetRegistryPath();
   if (erase || !base::DirectoryExists(data_folder)) {
     if (const DWORD error = DeleteTree(own)) {

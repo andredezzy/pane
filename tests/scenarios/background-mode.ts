@@ -14,11 +14,11 @@ const PROBE = join(
 	"background-permission",
 );
 
-// Chrome's background mode stays off (W8, ADR 0010): an extension that asks
-// the "background" permission put Chrome's own icon in Windows' notification
-// area, whose menu opens Chrome's task manager, About, and a window per
-// profile, outside Pane's window. Now none shows, the engine's Local State
-// says the mode is off on every system, and Quit still ends Pane.
+// Chrome's background mode stays off (ADR 0010): an extension that asks the
+// "background" permission put Chrome's own icon in Windows' notification area,
+// whose menu opens Chrome's task manager, About, and a window per profile,
+// outside Pane's window. Now none shows, the engine's Local State says the mode
+// is off on every system, and Quit still ends Pane.
 const backgroundMode: Scenario = async (context) => {
 	const app = await launchPane(context, {
 		args: [`--load-extension=${PROBE}`],

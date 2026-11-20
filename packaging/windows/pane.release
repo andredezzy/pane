@@ -1,8 +1,8 @@
 # What Pane's app folder holds on Windows, the folder an install puts at
-# %LOCALAPPDATA%\Programs\Pane\Application and an update swaps whole (W7,
-# Pane's own install): one path per line, relative to the folder, a glob
-# naming a set. scripts/package-win.sh lays the folder out from it, nothing
-# else, and fails on a line that names nothing.
+# %LOCALAPPDATA%\Programs\Pane\Application and an update swaps whole (Pane's own
+# install, ADR 0127): one path per line, relative to the folder, a glob naming a
+# set. scripts/package-win.sh lays the folder out from it, nothing else, and
+# fails on a line that names nothing.
 #
 # [engine], from the engine's build (out/Win, or its archive), each at its
 # path there: what Chromium's installer packs
@@ -11,13 +11,13 @@
 # chrome.exe loads the chrome.dll beside it where no version folder is
 # (chrome/app/main_dll_loader_win.cc); without Chromium's Start tiles' logos
 # (Logo.png, SmallLogo.png), and without the two launchers of web apps Pane
-# never installs (W7b, ADR 0127): chrome_proxy.exe, which only web apps'
-# shortcuts and Chrome's Omnibox Everywhere (off) start
-# (chrome/browser/shortcuts/platform_util_win.cc), and
-# chrome_pwa_launcher.exe, copied for an installed web app's file handlers
-# alone (chrome/browser/web_applications/chrome_pwa_launcher). Then Pane's own
-# files beside chrome.dll (base::DIR_ASSETS, pane/BUILD.gn's app_icons), and
-# Pane's installer, the uninstall's helper (pane/installer).
+# never installs (ADR 0127): chrome_proxy.exe, which only web apps' shortcuts
+# and Chrome's Omnibox Everywhere (off) start
+# (chrome/browser/shortcuts/platform_util_win.cc), and chrome_pwa_launcher.exe,
+# copied for an installed web app's file handlers alone
+# (chrome/browser/web_applications/chrome_pwa_launcher). Then Pane's own files
+# beside chrome.dll (base::DIR_ASSETS, pane/BUILD.gn's app_icons), and Pane's
+# installer, the uninstall's helper (pane/installer).
 #
 # [package], written by package-win.sh: Pane's version, Chrome's CRLSet, and
 # the licenses.

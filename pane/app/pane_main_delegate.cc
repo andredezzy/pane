@@ -33,7 +33,7 @@ std::optional<int> PaneMainDelegate::BasicStartupComplete() {
   // which on Windows waits for the sandbox), Pane's launch included, goes to
   // the system's log and stderr, the Mac's default: Windows' own is a
   // debug.log beside chrome.exe, in the app's folder, which an install keeps
-  // to the package's files (W7).
+  // to the package's files (ADR 0127).
   logging::LoggingSettings early_logging;
   early_logging.logging_dest =
       logging::LOG_TO_SYSTEM_DEBUG_LOG | logging::LOG_TO_STDERR;
@@ -46,11 +46,11 @@ std::optional<int> PaneMainDelegate::BasicStartupComplete() {
     // Pane's first profile appeared they turned the desktop's Pane.lnk the
     // install made into a shortcut of Chrome's own for the Default profile,
     // "Your Chromium - Chromium", badged, and wrote a Google Profile.ico into
-    // each profile's folder (ProfileShortcutManagerWin, W8): Pane's shortcuts
-    // are its own (ADR 0127). Chromium keeps one switch for it, the one its
-    // unit tests take, which only flips the check the profile manager asks as
-    // it is made: so here, before Chrome's browser process exists. Nothing on
-    // the Mac, where Chrome makes none.
+    // each profile's folder (ProfileShortcutManagerWin, ADR 0010): Pane's
+    // shortcuts are its own (ADR 0127). Chromium keeps one switch for it, the
+    // one its unit tests take, which only flips the check the profile manager
+    // asks as it is made: so here, before Chrome's browser process exists.
+    // Nothing on the Mac, where Chrome makes none.
     ProfileShortcutManager::DisableForUnitTests();
     // Pane's install, its registration, and its uninstall, which open no
     // data and start no engine (ADR 0127).
@@ -58,7 +58,7 @@ std::optional<int> PaneMainDelegate::BasicStartupComplete() {
       // ContentMain ends the process for a code of 0 or more alone
       // (content_main.cc): a failure's, an HRESULT the installer shows, is
       // negative, and went on to start the engine, which ended on a check
-      // and hid the code (W7c). The process ends here with it.
+      // and hid the code (commit 4fb6caa). The process ends here with it.
       if (*exit_code < 0) {
         base::Process::TerminateCurrentProcessImmediately(*exit_code);
       }

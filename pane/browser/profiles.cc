@@ -276,12 +276,12 @@ void CloseEveryPage(Profile* profile) {
 // profile showing one never closed, and its popup stayed on the screen beside
 // the PIN. Chrome shows a site's notifications there where the system's
 // center can't take them: on Windows with no Start shortcut naming Pane's
-// toast activator, which a person may have deleted (W10f). Closed so, by no
-// one, a site hears no notificationclose, as at Chrome's quit. With Chrome's
-// center empty, as on the Mac and with Windows' toasts, nothing is asked:
-// Chrome makes its center's manager at the first ask, and with it a blocker
-// that polls each second while the system's screen is locked, as it is at a
-// Lock the screen's lock brought.
+// toast activator, which a person may have deleted (commit dde4090). Closed so,
+// by no one, a site hears no notificationclose, as at Chrome's quit. With
+// Chrome's center empty, as on the Mac and with Windows' toasts, nothing is
+// asked: Chrome makes its center's manager at the first ask, and with it a
+// blocker that polls each second while the system's screen is locked, as it is
+// at a Lock the screen's lock brought.
 void CloseNotificationsInChromesCenter(Profile* profile) {
   const message_center::MessageCenter* shown =
       message_center::MessageCenter::Get();

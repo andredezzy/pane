@@ -26,8 +26,8 @@ namespace pane {
 // button shows another: the icon of the shortcut its AppUserModelID names,
 // Start's Pane.lnk, which it reads when the window's icon changes and that
 // shortcut's icon changes right after it, as FollowInShortcuts rewrites it
-// (W10a, measured in the test VM: an icon changed alone, a shortcut changed
-// alone or a second after the icon, left the button as it was). The
+// (measured in the test VM, 2026-11-17: an icon changed alone, a shortcut
+// changed alone or a second after the icon, left the button as it was). The
 // executable's own icon, which shows before the window does, in Explorer, and
 // in Task Manager, is Pane.ico's Day (patch 0001's chrome_exe.rc; Paper
 // 11.12.15).
@@ -80,11 +80,11 @@ windows::PointedShortcuts RewriteShortcuts(const base::FilePath& chrome_exe,
 // it for Pane's taskbar button, as Pane's window shows, and an overwrite
 // meanwhile fails with ERROR_USER_MAPPED_FILE. Dropped, it left the shortcut
 // and the taskbar's button on the sky before until the sky changed again
-// (W9a, W9d; W10a found it, 3 changes of 15 within seconds of a launch, the
-// test VM starved). A rewrite that fails is tried again after 0.1 s, then
-// twice as long each time, eight times, each try giving the windows their
-// icon again first, as the change did, so the taskbar's button reads the
-// shortcut it rewrites. A newer sky stops the tries.
+// (ADR 0089: 3 changes of 15 within seconds of a launch, the test VM starved).
+// A rewrite that fails is tried again after 0.1 s, then twice as long each
+// time, eight times, each try giving the windows their icon again first, as the
+// change did, so the taskbar's button reads the shortcut it rewrites. A newer
+// sky stops the tries.
 class ShortcutsFollower {
  public:
   static ShortcutsFollower& Get() {

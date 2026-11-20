@@ -2,13 +2,13 @@ import { launchPane, tabOf } from "../lib/pane";
 import { waitForExit } from "../lib/processes";
 import { expect, type Scenario } from "../run";
 
-// A tab's icon follows its page (the user's call of 2026-11-17, W9a and
-// W9b's stale icon): a page with an icon draws it in the tab's row; a new
-// document whose load ends with no icon of its own draws the globe Pane
-// draws for a tab with none, as Chrome's tab shows its default icon, and
-// the tab saves none, so a relaunch shows the globe too. The last page's
-// icon stays only while the load runs. Before, the row kept the last page's
-// icon (Google's G on every page opened from a new tab), saved with the tab.
+// A tab's icon follows its page (the user's call of 2026-11-17, on the stale
+// icon found by hand on each system): a page with an icon draws it in the tab's
+// row; a new document whose load ends with no icon of its own draws the globe
+// Pane draws for a tab with none, as Chrome's tab shows its default icon, and
+// the tab saves none, so a relaunch shows the globe too. The last page's icon
+// stays only while the load runs. Before, the row kept the last page's icon
+// (Google's G on every page opened from a new tab), saved with the tab.
 const tabIcon: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-tab-icon-");
 	let app = await launchPane(context, { dataDir });

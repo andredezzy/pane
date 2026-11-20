@@ -162,9 +162,9 @@ bool UpdateInstaller::Install(const base::FilePath& staged,
   if (!started.IsValid()) {
     // A job that lets nothing leave it refuses the breakaway: a terminal's,
     // a scheduler's, or one the helper itself runs in, as the Pane it opened
-    // after Restart to update does (W7c's runs). The helper then stays in
-    // it, which outlives Pane: the job ends only with the handles of
-    // whatever made it.
+    // after Restart to update does (the update's runs in the test VM,
+    // 2026-11-15). The helper then stays in it, which outlives Pane: the job
+    // ends only with the handles of whatever made it.
     options.force_breakaway_from_job_ = false;
     started = base::LaunchProcess(command, options);
   }

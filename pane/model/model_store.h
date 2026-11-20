@@ -35,9 +35,8 @@ namespace pane::model {
 // It owns the model, and lives on the window's sequence. The files are read
 // and written on a sequence of their own, in the order asked, which a quit
 // waits for (BLOCK_SHUTDOWN): the JSON, AES-GCM, and base64 never run on the
-// window's sequence, where Views composites (docs/plans/views-migration.md,
-// C3). The model already waits 300 ms after a change, so each save goes to
-// its file's ImportantFileWriter at once.
+// window's sequence, where Views composites. The model already waits 300 ms
+// after a change, so each save goes to its file's ImportantFileWriter at once.
 class ModelStore {
  public:
   // The data key's files key while it is open: nullopt before it opens and

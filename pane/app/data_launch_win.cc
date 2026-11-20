@@ -193,9 +193,9 @@ void KeepOutOfTheIndex(const base::FilePath& folder) {
 // so the copy's toasts are Windows' as an installed Pane's are. Chrome takes
 // them only while that shortcut is there, and without it showed the site's
 // notification in its own center, which held the profile open through the
-// Lock (W10e). Made at that launch alone: a scenario that deletes it finds
-// it gone at the next launch, as a person who deleted theirs does until they
-// install again. It goes with the home.
+// Lock (2026-11-18, commit dde4090). Made at that launch alone: a scenario that
+// deletes it finds it gone at the next launch, as a person who deleted theirs
+// does until they install again. It goes with the home.
 void TakeTestCopyHome(const base::FilePath& data_directory) {
   const std::optional<std::string> named = model::TestHook("PANE_HOME_DIR");
   if (!named) {

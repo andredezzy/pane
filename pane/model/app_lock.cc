@@ -520,7 +520,7 @@ void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
       // objetivo do pane é ser o máximo seguro possível"). Pane holds the key
       // there, and a new PIN could have kept the data, but only by setting it
       // without the current one checked, which nobody can check now. Until
-      // W8e the lines showed over the open profiles until Exit.
+      // commit 9e50b3c the lines showed over the open profiles until Exit.
       if (!unlocking) {
         guard_lost_ = true;
         delegate_->DidAskToLock();
@@ -540,8 +540,8 @@ void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
     case Opened::Kind::kGuardUnavailable:
       // In Settings, Pane stays open: the chip's errors there pass, so the
       // dots shake under the refusal's lines, nothing counts, and the next
-      // try may open (Paper 07.13 A, 07.4.2). Until W8e the window turned to
-      // 07.6.2's lines over the open profiles until Exit.
+      // try may open (Paper 07.13 A, 07.4.2). Until commit 9e50b3c the window
+      // turned to 07.6.2's lines over the open profiles until Exit.
       if (!unlocking) {
         Refused(system_.words.guard_refused);
         return;

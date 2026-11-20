@@ -58,8 +58,7 @@ const streamSignposts = bySystem({
 	windows: (): Subprocess<"ignore", "pipe", "ignore"> => {
 		throw noWindowsSide(
 			"the app's signposts",
-			"U6",
-			"they time frames, which are a real PC's",
+			"they time frames, which are a real PC's, ADR 0124's U6",
 		);
 	},
 });

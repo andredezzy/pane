@@ -13,7 +13,7 @@
 // Pane's lock and its keys, once the PIN is in. Chrome's handler loaded the
 // profile itself (ProfileManager::LoadProfile), outside both, and behind the
 // lock its load never finished, the profile not coming back after the PIN
-// (W8d). Unset, Chrome's handler goes on.
+// (commit 9e50b3c). Unset, Chrome's handler goes on.
 
 #include <optional>
 #include <string>

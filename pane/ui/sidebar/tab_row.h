@@ -25,7 +25,7 @@ class Canvas;
 
 namespace pane {
 
-// What a tab's row and a drag's copy of it (H3) show: its title, or
+// What a tab's row and a drag's copy of it (ADR 0066) show: its title, or
 // "Loading..." before it has one, beside its favicon (PaintFavicon) or the
 // globe.
 std::u16string TabTitle(const SidebarTab& tab);

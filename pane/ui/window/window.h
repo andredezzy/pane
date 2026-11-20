@@ -178,7 +178,7 @@ class Window : public WindowHost::Delegate,
   // A window not yet open; `controller` outlives it. One that `keeps_frame`
   // comes back where the last one was (the Mac's saved frame, "NSWindow
   // Frame PaneMainWindow"); a scenario's copy never reads or writes it, as
-  // it shares the user's preferences (B0).
+  // it shares the user's preferences (commit 8e0f0bb).
   Window(Controller* controller, bool keeps_frame);
   Window(const Window&) = delete;
   Window& operator=(const Window&) = delete;

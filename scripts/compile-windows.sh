@@ -10,8 +10,8 @@
 # 0124).
 # Each object compiles alone (`autoninja -C out/Win ../../<file>^`). A gate
 # before each push of an engine change, beside `gn check out/Win '//pane/*'`
-# (AGENTS.md); the link itself is a full Windows build's
-# (docs/plans/views-migration.md, W1).
+# (AGENTS.md); the link itself is a full Windows build's (scripts/build.sh,
+# PANE_BUILD_PLATFORM=windows-x64).
 #
 # It runs under nice with PANE_BUILD_JOBS jobs (default 6), and stops if the
 # Mac's 1-minute load stays over 18 for 2 minutes, as a build may never take

@@ -34,8 +34,8 @@ struct AXActionData;
 namespace pane {
 
 // A profile header's contents (the Swift's ProfileHeaderContent), which its
-// row and a drag's copy of it (H3) both draw: its color as a mark, 4 by 16
-// points as a bar, rounded 2, grown into a 16-point square, rounded 4; its
+// row and a drag's copy of it (ADR 0066) both draw: its color as a mark, 4 by
+// 16 points as a bar, rounded 2, grown into a 16-point square, rounded 4; its
 // name at 12 medium; its proxy's dot; and, collapsed, how many tabs it has,
 // muted. 8 in, its parts 8 apart.
 inline constexpr TextStyle kProfileName{12, weight::kMedium, 16};

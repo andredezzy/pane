@@ -1,11 +1,10 @@
 # Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-# The design's primitives (docs/plans/views-migration.md, Phase 3), one source
-# each, as the Swift app's Theme and Controls had them: the palette and the
-# Theme, the squircle, motion, text, Lucide's icons, and the controls' looks.
-# A target of its own so their tests run in pane_unittests, apart from the
-# engine; it takes nothing of //content's or //chrome's but Chrome's color ids'
-# end, after which Pane's start.
+# The design's primitives, one source each, as the Swift app's Theme and
+# Controls had them: the palette and the Theme, the squircle, motion, text,
+# Lucide's icons, and the controls' looks. A target of its own so their tests
+# run in pane_unittests, apart from the engine; it takes nothing of //content's
+# or //chrome's but Chrome's color ids' end, after which Pane's start.
 
 source_set("design") {
   visibility = [

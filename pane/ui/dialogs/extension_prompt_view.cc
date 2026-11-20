@@ -472,8 +472,8 @@ ExtensionPromptOverlay::ExtensionPromptOverlay(
   // It holds the keys while it shows, and is the dialog a screen reader
   // meets, by the prompt's title: Chromium leaves out a view that can't take
   // the focus under one that can (ViewAccessibility::UpdateIgnoredState), so
-  // the prompt inside it, the dialog until W8c, was never read, nor its
-  // title, and Narrator called the overlay holding the keys a "region".
+  // the prompt inside it, the dialog until commit 490757e, was never read, nor
+  // its title, and Narrator called the overlay holding the keys a "region".
   SetFocusBehavior(FocusBehavior::ALWAYS);
   GetViewAccessibility().SetRole(ax::mojom::Role::kDialog);
   GetViewAccessibility().SetName(prompt.title);

@@ -96,7 +96,8 @@ const focusGroups: Scenario = async (context) => {
 
 	// The sidebar's edge, which a screen reader's cursor gives the keys
 	// (Narrator's moves them), is the sidebar's: F6 goes on to the page and
-	// Shift+F6 back to the toolbar, where both went nowhere (W9a).
+	// Shift+F6 back to the toolbar, where both went nowhere (found by hand on
+	// Windows, 2026-11-16).
 	const edge = async (key: string, modifiers: string[] = []) => {
 		await app.send("screenReaderFocus", { name: "pane.sidebar.resize" });
 

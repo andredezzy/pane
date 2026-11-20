@@ -18,7 +18,7 @@ PinField::PinField(base::RepeatingCallback<bool(const ui::KeyEvent&)> key,
   set_controller(this);
   // No menu: the menu key and Shift+F10 open the focused view's, and a
   // screen reader's Show menu asks it too, which put a text field's Paste
-  // over the Lock (W8d).
+  // over the Lock (commit f475f04).
   set_context_menu_controller(nullptr);
   SetTextInputType(ui::TEXT_INPUT_TYPE_PASSWORD);
   SetBackgroundEnabled(false);

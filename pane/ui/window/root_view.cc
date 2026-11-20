@@ -454,7 +454,8 @@ RootView::RootView(Callbacks callbacks,
   // button takes it; where the system's buttons take Return (Windows; Views'
   // PlatformStyle), a dialog's own keys, as Delete profile's alert has them:
   // Tab round Cancel and Exit, and Space or Enter pressing the one with the
-  // ring (ADR 0126). With every key, Enter on a focused Cancel exited (W8c).
+  // ring (ADR 0126). With every key, Enter on a focused Cancel exited (until
+  // commit f475f04).
   quit_dialog_ = AddChildView(std::make_unique<ModalDialog>(
       QuitDialog::kWidth,
       std::make_unique<QuitDialog>(callbacks_.cancel_quit, callbacks_.quit),
@@ -464,7 +465,7 @@ RootView::RootView(Callbacks callbacks,
           : ModalDialog::Keys::kEvery));
   quit_dialog_->SetID(kViewIdQuit);
   // Read as a modal dialog named by its title, as Delete profile's alert and
-  // About Pane are: unnamed, Narrator said "dialog" alone (W8c).
+  // About Pane are: unnamed, Narrator said "dialog" alone (commit 490757e).
   quit_dialog_->GetViewAccessibility().SetName(
       std::u16string(Words().quit_question));
   // The PIN screen, over everything else but the hint; made now, so a Lock
@@ -575,7 +576,8 @@ void RootView::ShowLock(const LockScreenView::Shows& shows) {
     }
     // With nothing to take them, no page showing yet, they leave the PIN's
     // field as it goes, as a launch with no PIN gives no view the keys: they
-    // stayed in it, hidden, where a screen reader still read it (W8d).
+    // stayed in it, hidden, where a screen reader still read it (commit
+    // f475f04).
     views::FocusManager* focus = GetFocusManager();
     if (focus && lock_->Contains(focus->GetFocusedView())) {
       focus->ClearFocus();
@@ -1071,7 +1073,7 @@ bool RootView::OverlayKey(const ui::KeyEvent& event) {
   // accepts, Esc cancels; where the system's buttons take Return, the one
   // with the ring presses as it (Windows; Views' PlatformStyle), as a page's
   // dialog's does (ADR 0126): Enter on a focused Cancel added the extension
-  // (W8c).
+  // (until commit f475f04).
   if (extension_prompt_) {
     if (code == ui::VKEY_RETURN &&
         views::PlatformStyle::kReturnClicksFocusedControl &&
@@ -1208,7 +1210,7 @@ void RootView::HideProfileSheet() {
   }
   profile_sheet_->AnimateOut();
   // Gone to a screen reader as it starts to slide, so its cursor and the
-  // keys leave with it (W9b).
+  // keys leave with it (commit 64049b2).
   UpdateScreenReaderLayers();
   views::View* before = focus_before_sheet_.view();
   focus_before_sheet_.SetView(nullptr);
@@ -1313,7 +1315,7 @@ void RootView::ShowExtensionsMenu(const ExtensionsMenuView::Shows& shows) {
   if (opening) {
     AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
     // Said as it opens: the keys stay where they were, and Narrator said
-    // nothing of it (W8c).
+    // nothing of it (commit f475f04).
     extensions_menu_->GetViewAccessibility().AnnouncePolitely(
         u"Extensions menu");
   }
@@ -1349,7 +1351,7 @@ void RootView::ChildVisibilityChanged(views::View* child) {
   // not a control inside it. Each layer hands them back as it begins to go,
   // but a screen reader's cursor could put them back while it went
   // (VoiceOver moves the keys with it), and they stayed in the hidden sheet
-  // (W9b).
+  // (commit 64049b2).
   if (!child->GetVisible() && IsOverlay(*child)) {
     views::FocusManager* focus = GetFocusManager();
     views::View* focused = focus ? focus->GetFocusedView() : nullptr;

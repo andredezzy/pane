@@ -204,7 +204,7 @@ TEST_F(SwapTest, RefusesAnotherLayout) {
 namespace {
 
 // A process of Pane's that outlived its browser, as an idle renderer did
-// (W5j, W7a): it waits to be ended.
+// in the test VM (2026-11-14 and 2026-11-15): it waits to be ended.
 MULTIPROCESS_TEST_MAIN(PaneLeftover) {
   base::PlatformThread::Sleep(TestTimeouts::action_max_timeout());
   return 0;
@@ -247,7 +247,7 @@ MULTIPROCESS_TEST_MAIN(PaneBrowser) {
 // The helper waits for the browser to have exited, and says so: an exit code
 // base::Process reads after its wait needs its handle opened for it, which
 // one opened to wait alone (SYNCHRONIZE) lacks, and the swap read every exit
-// as "Pane didn't exit" (W7c's first runs).
+// as "Pane didn't exit" (the update's first runs in the test VM, 2026-11-15).
 TEST(SwapProcessesTest, WaitsForTheBrowsersExit) {
   base::FilePath exe;
   ASSERT_TRUE(base::PathService::Get(base::FILE_EXE, &exe));

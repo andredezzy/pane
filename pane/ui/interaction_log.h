@@ -32,14 +32,14 @@ namespace pane {
 // frame (ADR 0056); Chrome's extensions page opened in the profile's tab,
 // to the frame that shows the tab, and on to the page's first paint (D3);
 // and the profile sheet's Test connection pressed, to the frame showing its
-// answer (N2); and the PIN screen's (L1): a digit to the frame showing its
+// answer (ADR 0037); and the PIN screen's: a digit to the frame showing its
 // dot, the digit that completes a PIN to the frame that answers it, a wrong
 // one's shake or the Lock's first frame sinking away, and Lock Pane to the
 // first frame of the PIN screen rising; in Settings, the digit that makes a
 // new seal (Set up's and Change's Confirm PIN, Remove's current PIN), and
 // Try again, to the frame that answers once the seal is made and written:
 // the PIN screen's first frame sinking, or its lines that the disk didn't
-// save it (Paper 07.12); and the update's (K1): a check's offer to the
+// save it (Paper 07.12); and the update's (ADR 0002): a check's offer to the
 // pill's first frame, and a download's progress to the frame showing it.
 enum class Interaction {
   kSelectTab,

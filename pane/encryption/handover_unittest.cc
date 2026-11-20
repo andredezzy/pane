@@ -26,12 +26,12 @@ constexpr char kProfile[] = "6f9d2c1a-8b3e-4c7d-9a2f-1e5b7c3d9f02";
 // What a write on the pool found as it reached the profile's file.
 enum Reached : int { kNotYet, kWithItsKey, kWithoutItsKey };
 
-// The network service's drop at a lock (W9a, Windows' test VM): a closed
-// profile's last state, written by an ImportantFileWriter on the service's
-// own thread pool, still under way as the lock's drop came, met the
-// encryption's check of a profile's file with no key, which ended the
-// service (3 in 16 Locks over a streaming HTTPS video). The write is held
-// here until the test lets it go, as the VM's load held it.
+// The network service's drop at a lock (found by hand in Windows' test VM,
+// 2026-11-16; commit f81ca5f): a closed profile's last state, written by an
+// ImportantFileWriter on the service's own thread pool, still under way as the
+// lock's drop came, met the encryption's check of a profile's file with no key,
+// which ended the service (3 in 16 Locks over a streaming HTTPS video). The
+// write is held here until the test lets it go, as the VM's load held it.
 class DropKeysAtLockTest : public testing::Test {
  protected:
   void SetUp() override {

@@ -53,8 +53,8 @@ class RowButton : public views::Button {
   void SetTintsOnHover(bool tints_on_hover);
   // A tab without a page shows its contents at 60%.
   void SetDimmed(bool dimmed);
-  // A drag carries the row (H3): it shows no hover or press of its own, the
-  // copy over it has them (ADR 0066).
+  // A drag carries the row: it shows no hover or press of its own, the copy
+  // over it has them (ADR 0066).
   void SetDragged(bool dragged);
   // Holds the row lit while its menu shows, as the Swift's row stayed under
   // its context menu; once the menu goes, the row follows the pointer.

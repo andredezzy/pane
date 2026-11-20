@@ -21,8 +21,8 @@ namespace pane::screen_reader {
 // each system's half gives the data its own screen reader reads right. The
 // Mac's keeps what VoiceOver has read since ADR 0071; Windows' was chosen by
 // what Narrator says of each of ARIA's roles in Pane's own pages, which reach
-// UI Automation by the same mapping as Pane's views (W8c,
-// `evidence/views-migration/runs/p5-w8c-notes.md`).
+// UI Automation by the same mapping as Pane's views (ADR 0071; 2026-11-16,
+// commit 490757e).
 
 // A picker (MenuButton), its label its name and its option its value: a pop
 // up button on the Mac ("System Theme menu pop up pop up button"); a combo
@@ -90,7 +90,7 @@ void SetOpens(views::ViewAccessibility& button, bool menu, bool open);
 // button says it opens something (its popup, or its state), as
 // Chrome's app menu button takes both (BrowserAppMenuButton): Views acts on
 // neither, so Narrator's primary action, and the runner's press, were
-// refused on "Pane ⌄" and the pickers (W8c).
+// refused on "Pane ⌄" and the pickers (commit 490757e).
 bool PressToExpand(views::View& button, const ui::AXActionData& action);
 
 // A heading at its `level`: VoiceOver says "heading" of any; Narrator only of
@@ -100,14 +100,15 @@ void SetHeading(views::ViewAccessibility& heading, int level);
 // A graphic read by its name (the PIN's dots, "2 of 4 digits"): a group on
 // the Mac, which VoiceOver reads; an image on Windows, since Narrator walks
 // past a group with nothing in it, and its walk can't leave text that holds
-// no text of its own (W8c: "Unable to move Narrator cursor" at the dots).
+// no text of its own ("Unable to move Narrator cursor" at the dots; commit
+// 490757e).
 void SetIndicator(views::ViewAccessibility& indicator);
 
 // The PIN's field and its dots, the count typed ("2 of 4 digits"): on the
 // Mac the dots read on their own, as VoiceOver has read them; on Windows the
 // field described by the count and the dots left out, since Narrator,
 // entering the PIN's dialog, read on past the field to the dots and stayed
-// there, speaking each digit typed rather than "Hidden" (W8d).
+// there, speaking each digit typed rather than "Hidden" (commit f475f04).
 void SetPinCount(views::ViewAccessibility& field,
                  views::ViewAccessibility& dots,
                  const std::u16string& count);

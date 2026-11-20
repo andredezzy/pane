@@ -41,9 +41,9 @@ class UiaElement
 
   // Says a dialog's description, after what is being said: Narrator says a
   // dialog's name and kind as it takes the focus, and never its full
-  // description, so the uninstall dialog's message went unsaid (W8c:
-  // "Uninstall Pane? window", three times, and nothing of "Pane leaves this
-  // PC"). The window says it once a screen reader has reached it.
+  // description, so the uninstall dialog's message went unsaid (Narrator,
+  // 2026-11-16: "Uninstall Pane? window", three times, and nothing of "Pane
+  // leaves this PC"). The window says it once a screen reader has reached it.
   void SayDescription();
 
   // Its window is going: nothing is read of it from now on.

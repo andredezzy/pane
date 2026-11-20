@@ -9,14 +9,14 @@ import { expect, type Scenario } from "../run";
 // The update's states as the pill, Settings' update row, and the Lock show
 // them (DESIGN.md › Updates; Paper 03.3, 03.6, 04.27, 04.28, 06.3, 06.3.1),
 // on the run's build, the Views app's or the Swift's, to compare
-// (docs/plans/views-migration.md, K1): offered; a download refused, its digest
-// another, which offers it again; downloading; ready, staged beside the app
-// (Restart to update); and installed by hand, where Pane can't replace itself
-// (Quit and install; on Windows Exit and install, Paper 11.12.11 to 11.12.13).
-// Whole windows in the run's appearance at the screen's scale, Settings
-// scrolled to its end, the Lock's action under the pointer. Each copy runs in
-// a folder of its own, since staging writes beside it. On Windows it runs in
-// front (--foreground): behind, the Lock stays drawn after its unlock.
+// (commit dce3d0f): offered; a download refused, its digest another, which
+// offers it again; downloading; ready, staged beside the app (Restart to
+// update); and installed by hand, where Pane can't replace itself (Quit and
+// install; on Windows Exit and install, Paper 11.12.11 to 11.12.13). Whole
+// windows in the run's appearance at the screen's scale, Settings scrolled to
+// its end, the Lock's action under the pointer. Each copy runs in a folder of
+// its own, since staging writes beside it. On Windows it runs in front
+// (--foreground): behind, the Lock stays drawn after its unlock.
 
 // Where the Lock's update status is in the 1280 × 800 window, for a build
 // whose channel names no frames (the Swift's): the Views build's.
@@ -253,7 +253,7 @@ async function lockAndRender(
 
 	// Gone from the window too, before a page is rendered: behind, on Windows,
 	// the Lock stays drawn after the unlock until Pane comes to the front, and
-	// the renders after it were the Lock's (W7c, in the test VM).
+	// the renders after it were the Lock's (in the test VM, 2026-11-15).
 	const lockShows = await pollValue(
 		async () =>
 			"pane.lockScreen.update" in

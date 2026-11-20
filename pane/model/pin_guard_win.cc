@@ -277,9 +277,9 @@ PinGuard::Refusal RefusalAtOpen(long status, bool has_chip) {
   }
 }
 
-// Until W8 every status here but a wrong PIN and a lockout read as the key
-// gone: a passing error showed 07.6.1, "nothing can bring it back", for data
-// the next launch opens.
+// Until commit fcd50d3 every status here but a wrong PIN and a lockout read as
+// the key gone: a passing error showed 07.6.1, "nothing can bring it back", for
+// data the next launch opens.
 PinGuard::Refusal RefusalAtDecrypt(long status, bool has_chip) {
   if (IsLockout(status)) {
     return PinGuard::Refusal::kLockedOut;

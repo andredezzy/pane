@@ -9,8 +9,8 @@ import { captureWindow } from "../lib/tools";
 import { clickAt, launchTraced } from "../lib/traced";
 import { expect, type Scenario } from "../run";
 
-// What Chrome asks for, second half (docs/plans/views-migration.md, Phase 3),
-// on the Views build, in the background:
+// What Chrome asks for, second half (commit c3997e2), on the Views build, in
+// the background:
 // - find in page's bar drawn as `surfaces-find-<state>.png`, the names
 //   tests/rigs/surfaces.ts gave the Swift's renders (matches, no match), and
 //   the states those miss (empty, a count of one digit and of two); its

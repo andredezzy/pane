@@ -210,11 +210,12 @@ const engineKeys: Scenario = async (context) => {
 	);
 
 	// The tab the unlock brings back, its first load lost as the network
-	// service crashed (W9a: Windows' error reporting held the dead service
-	// past the PIN, and the tab stayed blank, its load never tried again):
-	// it loads by itself once the service is back. Its response held 6 s, and
-	// never kept by the HTTP cache (no-store), as the restore would otherwise
-	// load it from there at once; the service killed meanwhile.
+	// service crashed (found by hand on Windows, 2026-11-16: Windows' error
+	// reporting held the dead service past the PIN, and the tab stayed blank, its
+	// load never tried again): it loads by itself once the service is back. Its
+	// response held 6 s, and never kept by the HTTP cache (no-store), as the
+	// restore would otherwise load it from there at once; the service killed
+	// meanwhile.
 	const slowURL = `http://keys.localhost:${port}/headers?format=html&delay=6000`;
 	await app.send("navigate", { input: slowURL });
 
@@ -252,7 +253,8 @@ const engineKeys: Scenario = async (context) => {
 	// Its load shows from its start, as any load's does: the row's and the
 	// toolbar's loading and the bar, while the server holds the response.
 	// Chrome's Navigate starts a restored tab's load before Pane observes the
-	// page, which missed its start and showed nothing until a response (W9c).
+	// page, which missed its start and showed nothing until a response (until
+	// commit 64f022e).
 	await app.waitFor(
 		"the restored page's load showing",
 		(state) => tabOf(state, tab)?.loading === true && state.progressBar.started,

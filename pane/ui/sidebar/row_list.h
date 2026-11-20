@@ -15,15 +15,14 @@
 
 namespace pane {
 
-// The sidebar's rows (H2), stacked 4 apart, 8 in from its sides and 4 from
-// its ends, each where its order puts it: their own, or the one a drag draws
-// them in, the dragged row at the place it would drop (H3, ADR 0066). The
-// rows a drag reorders paint to layers of their own while it runs, and one
-// whose place changes slides there from where it stands, by its layer's
-// transform, on Motion.slide: it moves as one, its favicon and title
-// together (the Swift's geometry group), and no frame repaints. They are
-// drawn in the order they stand, so a row crossing another passes over it as
-// the Swift's later row did.
+// The sidebar's rows, stacked 4 apart, 8 in from its sides and 4 from its ends,
+// each where its order puts it: their own, or the one a drag draws them in, the
+// dragged row at the place it would drop (ADR 0066). The rows a drag reorders
+// paint to layers of their own while it runs, and one whose place changes
+// slides there from where it stands, by its layer's transform, on Motion.slide:
+// it moves as one, its favicon and title together (the Swift's geometry group),
+// and no frame repaints. They are drawn in the order they stand, so a row
+// crossing another passes over it as the Swift's later row did.
 class RowList : public views::View, public views::ViewObserver {
   METADATA_HEADER(RowList, views::View)
 

@@ -27,8 +27,8 @@ import { captureWindow, swiftTool } from "../lib/tools";
 import { launchTraced } from "../lib/traced";
 import { expect, type Scenario, type ScenarioContext } from "../run";
 
-// Extensions, X3 to X5 (docs/plans/views-migration.md, Phase 3), on the
-// Views build, in the background:
+// Extensions' prompts, Chrome's pages, and the shortcuts (commit 19d23fa), on
+// the Views build, in the background:
 // - the prompts (ADR 0056): adding, Dia's dialog over the scrim (Paper
 //   04.10), from the Web Store's own install of Dark Reader, and removing,
 //   Aside's popup under the probe's button (04.11), each rendered light and
@@ -39,8 +39,8 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 //   channel renders it with the page's own capture in its place, as Paper's
 //   boards were made, light and dark;
 // - an action's popup above its button, with the window placed low on the
-//   screen, where the room above it is more than below (X2's carried
-//   finding): its edge, and its bubble rendered;
+//   screen, where the room above it is more than below (found as the popup was
+//   built, commit 6bf3b75): its edge, and its bubble rendered;
 // - timed by the app's signposts: Chrome's hook asking to add, and Remove
 //   from Pane's press, each to its prompt's first frame ("Extension
 //   prompt"), and Manage all extensions to the frame
@@ -70,7 +70,7 @@ async function park(app: PaneApp) {
 // The test's own window, as the screen shows it, at the display's scale:
 // only the main window of the app this run launched, by its number. A locked
 // screen shows no window to capture: the capture defers, as the other rigs'
-// do (W8c's run failed on it).
+// do (a run of 2026-11-16 failed on it).
 async function capture(
 	context: ScenarioContext,
 	state: AppState,

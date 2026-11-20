@@ -36,8 +36,8 @@ HWND OwnerOf(gfx::NativeWindow owner) {
 // (auto_close_dialog_event_handler_win.cc); the one before outlives the
 // re-enabling of its owner while its thread lets go of the dialog's COM
 // objects, and a panel asked for at once in that moment ended the browser
-// with 0x80000003 (W8c: `file-chooser`'s save picker after its cancelled open
-// picker, 1 run in 3 in the test VM, every one at that CHECK).
+// with 0x80000003 (`file-chooser`'s save picker after its cancelled open
+// picker, 1 run in 3 in the test VM, every one at that CHECK; commit 490757e).
 std::vector<std::pair<DWORD, base::win::ScopedHandle>>& DialogThreads() {
   static base::NoDestructor<
       std::vector<std::pair<DWORD, base::win::ScopedHandle>>>

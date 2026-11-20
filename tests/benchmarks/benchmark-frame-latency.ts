@@ -1,15 +1,15 @@
 import { benchmarkedApp, conditions, launchApp } from "../lib/benchmark";
 import type { Scenario } from "../run";
 
-// A painted frame's way to the screen (docs/plans/views-migration.md, the
-// gate): benchmark-scroll's scroll, and for each of the page's frames in it
-// how long cc's PipelineReporter says it took from its compositor's
-// submission to its presentation (SubmitCompositorFrameToPresentation-
-// CompositorFrame), with the stages under it, in a trace of the "benchmark"
-// category over the benchmarks' CDP connection. The page's frames are its
-// renderer's, those that scrolled on the compositor thread; the browser's are
-// the window's own. Each run is a launch on new data; each round, a scroll
-// from the top.
+// A painted frame's way to the screen (the gate's measure,
+// docs/benchmarks/views-shell.md): benchmark-scroll's scroll, and for each of
+// the page's frames in it how long cc's PipelineReporter says it took from its
+// compositor's submission to its presentation
+// (SubmitCompositorFrameToPresentationCompositorFrame), with the stages under
+// it, in a trace of the "benchmark" category over the benchmarks' CDP
+// connection. The page's frames are its renderer's, those that scrolled on the
+// compositor thread; the browser's are the window's own. Each run is a launch
+// on new data; each round, a scroll from the top.
 
 const RUNS = 3;
 const ROUNDS = 3;

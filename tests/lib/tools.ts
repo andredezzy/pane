@@ -245,7 +245,10 @@ export const recordWindow = bySystem({
 			{ stdout: "ignore", stderr: "ignore" },
 		),
 	windows: (_windowId: number, _seconds: string, _file: string): Subprocess => {
-		throw noWindowsSide("a window's recording", "U6", "a real PC's frames");
+		throw noWindowsSide(
+			"a window's recording",
+			"a real PC's frames, ADR 0124's U6",
+		);
 	},
 });
 
@@ -435,7 +438,7 @@ export const shortcutIcon = bySystem({
 });
 
 // Holds `file` mapped into another process, as Windows' shell maps Start's
-// shortcut while it reads it for Pane's taskbar button (W10a): reads go on,
+// shortcut while it reads it for Pane's taskbar button (ADR 0089): reads go on,
 // and an overwrite fails meanwhile (ERROR_USER_MAPPED_FILE), until the
 // returned release runs. The view alone stays, its file's handle closed, as
 // the shell's does. On a test copy's own files alone.
@@ -535,8 +538,7 @@ export const imagesAttachedIn = bySystem({
 	windows: async (_path: string): Promise<string[]> => {
 		throw noWindowsSide(
 			"the data volume's disk images",
-			"U5",
-			"Windows has no volume",
+			"Windows has no volume, ADR 0124's U5",
 		);
 	},
 });
@@ -583,8 +585,7 @@ export const mountedAt = bySystem({
 	windows: async (_path: string): Promise<boolean> => {
 		throw noWindowsSide(
 			"the data volume's mount",
-			"U5",
-			"Windows has no volume",
+			"Windows has no volume, ADR 0124's U5",
 		);
 	},
 });
@@ -597,8 +598,8 @@ const LSREGISTER =
 // Pane would be the one a link opens, on the user's own data. A run forgets
 // the copy it ran when it ends; one in /Applications is the user's. A launch
 // on Windows registers nothing a link opens: Chromium is registered there by
-// its installer (W7) or as the default browser (W8), neither of which a
-// scenario runs.
+// its installer (ADR 0127) or as the default browser (ADR 0109), neither of
+// which a scenario runs.
 export const forgetBundle = bySystem({
 	mac: async (binary: string) => {
 		const bundle = binary.replace(/\/Contents\/MacOS\/[^/]+$/, "");
@@ -613,8 +614,10 @@ export const forgetBundle = bySystem({
 });
 
 // What makes a stand-in Pane, and a copy of one that reports another
-// version: the Mac's bundles and dmgs. Windows' install and update are W7's.
-const INSTALL = "Windows' install and update decide it";
+// version: the Mac's bundles and dmgs. Windows' install and update are its
+// installer's (ADR 0127).
+const INSTALL =
+	"Windows installs from an installer, not a bundle: tests/vm/windows-install.ts checks it, ADR 0127";
 
 // A copy of the bundle `from` made at `to`, as the Finder copies one.
 export const copyBundle = bySystem({
@@ -622,7 +625,7 @@ export const copyBundle = bySystem({
 		await Bun.$`ditto ${from} ${to}`.quiet();
 	},
 	windows: async (_from: string, _to: string): Promise<void> => {
-		throw noWindowsSide("a copy of an app bundle", "W7", INSTALL);
+		throw noWindowsSide("a copy of an app bundle", INSTALL);
 	},
 });
 
@@ -633,7 +636,7 @@ export const signAdHoc = bySystem({
 		await Bun.$`codesign --force --sign - ${keep ? ["--preserve-metadata=identifier,entitlements,flags,runtime"] : []} ${bundle}`.quiet();
 	},
 	windows: async (_bundle: string, _keep = false): Promise<void> => {
-		throw noWindowsSide("an ad hoc signature", "W7", INSTALL);
+		throw noWindowsSide("an ad hoc signature", INSTALL);
 	},
 });
 
@@ -653,11 +656,7 @@ export const plistString = bySystem({
 		return read.exitCode === 0 ? read.stdout.toString().trim() : undefined;
 	},
 	windows: (_plist: string, _key: string): string | undefined => {
-		throw noWindowsSide(
-			"a bundle's plist",
-			"W7",
-			"no Pane was published for Windows",
-		);
+		throw noWindowsSide("a bundle's plist", INSTALL);
 	},
 });
 
@@ -671,7 +670,7 @@ export const setPlistString = bySystem({
 		_key: string,
 		_value: string,
 	): Promise<void> => {
-		throw noWindowsSide("a bundle's plist", "W7", INSTALL);
+		throw noWindowsSide("a bundle's plist", INSTALL);
 	},
 });
 
@@ -685,7 +684,7 @@ export const compileC = bySystem({
 		_binary: string,
 		_defines: string[],
 	): Promise<void> => {
-		throw noWindowsSide("a stand-in Pane's executable", "W7", INSTALL);
+		throw noWindowsSide("a stand-in Pane's executable", INSTALL);
 	},
 });
 
@@ -699,7 +698,7 @@ export const makeDmg = bySystem({
 		_path: string,
 		_name: string,
 	): Promise<void> => {
-		throw noWindowsSide("a dmg", "W7", INSTALL);
+		throw noWindowsSide("a dmg", INSTALL);
 	},
 });
 
@@ -1079,7 +1078,7 @@ function holdsAny(file: string, needles: Buffer[]): boolean {
 // the rename, where a read-only mode would not, the folder being writable; on
 // Windows as another program holds it open, reading and sharing reads alone,
 // which refuses ReplaceFileW and MoveFileEx (a backup, an antivirus scan;
-// W8b). On a test copy's own data alone.
+// commit fcd50d3). On a test copy's own data alone.
 export const holdFile = bySystem({
 	mac: async (file: string): Promise<() => Promise<void>> => {
 		await Bun.$`/usr/bin/chflags uchg ${file}`.quiet();

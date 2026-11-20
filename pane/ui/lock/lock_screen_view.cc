@@ -280,7 +280,7 @@ class LockScreenView::PinContent : public views::View {
     const std::optional<std::string_view> title = entry.Title();
     // A new step of the same screen (Enter new PIN, then Confirm PIN) is said
     // as it shows, its title being all that changes: the keys stay where they
-    // were, and Narrator said nothing of it (W8c).
+    // were, and Narrator said nothing of it (commit f475f04).
     const std::u16string title_before = title_->GetVisible()
                                             ? std::u16string(title_->GetText())
                                             : std::u16string();
@@ -290,7 +290,7 @@ class LockScreenView::PinContent : public views::View {
       if (animate && !title_before.empty() &&
           title_before != title_->GetText()) {
         // Past the last digit's echo and the field's emptying, which Narrator
-        // spoke over a step said with them (W8d).
+        // spoke over a step said with them (commit f475f04).
         base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
             FROM_HERE,
             base::BindOnce(
@@ -376,7 +376,7 @@ class LockScreenView::PinContent : public views::View {
   // it, once the lines the same answer brings have shown. Its shake alone told
   // a screen reader nothing at Windows' Lock, where a seal the TPM guards
   // counts no attempts toward a wipe (07.1.1), and in Settings' Change and
-  // Remove PIN on both systems (W8c); at the Mac's Lock "4 attempts
+  // Remove PIN on both systems (commit 490757e); at the Mac's Lock "4 attempts
   // remaining" says it already.
   void Shook() {
     if (!verifying_) {
@@ -621,7 +621,7 @@ void LockScreenView::SetShows(const Shows& shows, bool animate) {
   }
   // Named by its step's title where one shows (ADR 0071), and at the Lock,
   // which shows none, by what it is: unnamed, Narrator said "dialog" alone
-  // (W8c).
+  // (commit f475f04).
   panel_->GetViewAccessibility().SetName(
       shows_.entry ? pin_->title().value_or(std::u16string(kLockedName))
                    : std::u16string(kLockedName));

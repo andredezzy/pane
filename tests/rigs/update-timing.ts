@@ -3,11 +3,10 @@ import { serveSlowRelease } from "../lib/slow-release";
 import { launchCopy, standInDmg } from "../lib/update-copies";
 import type { Scenario } from "../run";
 
-// The update's frames, from the app's signposts (pane/ui/interaction_log.h;
-// docs/plans/views-migration.md, K1): an offer to the pill's first frame
-// ("Show update"), and each share downloaded to the frame showing it
-// ("Download progress"), over `ROUNDS` launches, each a copy in a folder of
-// its own offered a 6 MB stand-in dmg served at 640 KB/s.
+// The update's frames, from the app's signposts (pane/ui/interaction_log.h): an
+// offer to the pill's first frame ("Show update"), and each share downloaded to
+// the frame showing it ("Download progress"), over `ROUNDS` launches, each a
+// copy in a folder of its own offered a 6 MB stand-in dmg served at 640 KB/s.
 
 const ROUNDS = 5;
 

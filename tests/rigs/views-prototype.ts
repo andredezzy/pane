@@ -2,10 +2,9 @@ import { framesDuring, statesByProcess } from "../lib/frames";
 import { launchPane, trafficLightsInPlace } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
-// The Views prototype's run (docs/plans/views-migration.md, Phase 1): two
-// profiles, a page each, a switch between them, the sheet over the page, a
-// new tab and the address field from the menu, renders. For the Views
-// build, from out/Release:
+// The Views prototype's run (commit 4a067a2): two profiles, a page each, a
+// switch between them, the sheet over the page, a new tab and the address field
+// from the menu, renders. For the Views build, from out/Release:
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> tests/rigs/views-prototype.ts
@@ -28,7 +27,7 @@ const viewsPrototype: Scenario = async (context) => {
 		profiles: state.profiles.length,
 	});
 
-	// The switch to the other profile morphs its mark on the spring (G5):
+	// The switch to the other profile morphs its mark on the spring:
 	// the window's own frames, the browser process's, all presented in full.
 	const reports = await framesDuring(app.browser.cdp, async () => {
 		({ state } = await app.send("select", { tab: a.tab }));

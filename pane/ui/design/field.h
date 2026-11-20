@@ -62,9 +62,8 @@ class SelectionFollowsWindow : public views::ViewObserver,
 // edge, its text 13 points in (px-3 inside the border), 14 points by
 // default, the placeholder muted, with no hover of its own. Focused, the ring
 // shows outside the border; a problem shows alone, as the border turning red
-// (memory field-problem-red-ring), coming and going with Motion.toggle,
-// which VoiceOver reads as the field's description. Disabled, all of it is at
-// 50%.
+// (ADR 0120), coming and going with Motion.toggle, which VoiceOver reads as the
+// field's description. Disabled, all of it is at 50%.
 class Field : public views::Textfield {
   METADATA_HEADER(Field, views::Textfield)
 

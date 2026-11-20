@@ -51,7 +51,7 @@ void ResizeHandle::SetWidth(double width) {
   GetViewAccessibility().SetValueForRange(width);
   // Said as it changes while a screen reader is on it, as Views' sliders say
   // theirs (Slider::SetValueInternal): Narrator said the arrows' new widths
-  // nothing (W8d).
+  // nothing (commit f475f04).
   NotifyAccessibilityEventDeprecated(ax::mojom::Event::kValueChanged, true);
 }
 

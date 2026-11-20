@@ -59,7 +59,7 @@ const quit: Scenario = async (context) => {
 
 	// Where Return presses the button with the ring (Windows, ADR 0126), Tab
 	// gives Cancel the ring, and Return then cancels: Enter on a focused
-	// Cancel exited (W8c).
+	// Cancel exited (until commit f475f04).
 	if (RETURN_PRESSES_THE_RING) {
 		await app.send("key", KEYS.quit);
 		await app.waitFor("Exit Pane? for its ring", (s) => s.quitConfirmation);

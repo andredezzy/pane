@@ -78,7 +78,7 @@ const windowDrag: Scenario = async (context) => {
 		(state) => state.security.screen !== null,
 	);
 
-	// The screen slides in; the Views build draws it once L1 is in.
+	// The screen slides in; the Views build draws it since commit 5324f01.
 	const lockShown = await poll(
 		"the lock screen",
 		async () =>
@@ -87,7 +87,7 @@ const windowDrag: Scenario = async (context) => {
 	).catch(() => false);
 
 	if (!lockShown) {
-		context.defer("the lock screen's panel: no lock screen is drawn (L1)");
+		context.defer("the lock screen's panel: no lock screen is drawn");
 
 		return;
 	}

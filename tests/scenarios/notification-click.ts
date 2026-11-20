@@ -39,28 +39,27 @@ import { expect, type Scenario, type ScenarioContext } from "../run";
 // process singleton takes, and which starts a closed Pane, locked at its
 // launch: Chrome's own startup would have opened the toast's profile before
 // the PIN, and Pane's callback read pages alone, so the click showed the
-// window and nothing more (W8b). On the Mac, macOS's center hands the click
-// to the browser itself, as the channel hands it here, with no click on the
-// screen, and Chrome's handler hands it to Pane (patch 0004) as Windows'
+// window and nothing more (found 2026-11-16). On the Mac, macOS's center hands
+// the click to the browser itself, as the channel hands it here, with no click
+// on the screen, and Chrome's handler hands it to Pane (patch 0004) as Windows'
 // launch does: behind the lock it waits for the PIN, where Chrome's handler
-// loaded the profile outside Pane's lock, and the profile never came back
-// after the PIN (W8d). A profile's notifications leave the system's center
-// as the profile closes, at every Lock, and every one of Pane's at Exit, on
-// both systems (the user's call, 2026-11-18): Chrome's bridge takes them from
-// macOS's center, and Pane from Windows', whose bridge took none, so a site's
-// words stayed there with Pane locked or closed (W10g). The runner reads
-// Windows' center: the profile's toasts there before the Lock, a
-// requireInteraction one among them, none after it, none of Pane's after
-// Exit. So a click behind the lock is one that lands as the lock comes, on
-// both systems, and with Pane closed only a notification a crash left can be
+// loaded the profile outside Pane's lock, and the profile never came back after
+// the PIN (until commit f475f04). A profile's notifications leave the system's
+// center as the profile closes, at every Lock, and every one of Pane's at Exit,
+// on both systems (the user's call, 2026-11-18): Chrome's bridge takes them
+// from macOS's center, and Pane from Windows', whose bridge took none, so a
+// site's words stayed there with Pane locked or closed (until commit 370849c).
+// The runner reads Windows' center: the profile's toasts there before the Lock,
+// a requireInteraction one among them, none after it, none of Pane's after
+// Exit. So a click behind the lock is one that lands as the lock comes, on both
+// systems, and with Pane closed only a notification a crash left can be
 // clicked, which on Windows starts Pane locked; nothing of Pane's is in
-// Windows' center once that launch has started (W10h), and on the Mac the
-// next launch takes the crash's out of macOS's center before the PIN, by its
-// profile's id (W10i). A toast is Windows' only
-// while Start holds Pane's shortcut, which a test copy's first launch makes
-// in its own home: with it deleted, the notification shows in Chrome's own
-// center, and the Lock still closes the profile and leaves Pane running, the
-// popup gone (W10f).
+// Windows' center once that launch has started (commit 5cd22d7), and on the Mac
+// the next launch takes the crash's out of macOS's center before the PIN, by
+// its profile's id (commit 3fc05c1). A toast is Windows' only while Start holds
+// Pane's shortcut, which a test copy's first launch makes in its own home: with
+// it deleted, the notification shows in Chrome's own center, and the Lock still
+// closes the profile and leaves Pane running, the popup gone (commit dde4090).
 const notificationClick: Scenario = async (context) => {
 	const dataDir = context.tempDir("pane-notification-");
 	await setPinBeforeLaunch(context, dataDir, "1234");
@@ -69,8 +68,8 @@ const notificationClick: Scenario = async (context) => {
 	await unlock(app);
 
 	// Unlocked with no page to show, the keys leave the PIN's field as the
-	// PIN screen goes (W8d: they stayed in it, hidden, where a screen reader
-	// still read it).
+	// PIN screen goes (until commit f475f04 they stayed in it, hidden, where a
+	// screen reader still read it).
 	const opened = await app.state();
 
 	expect(
@@ -119,7 +118,7 @@ const notificationClick: Scenario = async (context) => {
 		// Shown once Chrome has it, as showNotification resolves: what the
 		// system's center lists of it (getNotifications) is the center's own,
 		// which lists a test copy's banner on the Mac only seconds after its
-		// show (W10h; W8d read it at once and found none).
+		// show (commit 5cd22d7; read at once, on 2026-11-16, it found none).
 		await page.evaluate(
 			`show(${JSON.stringify(tag)}, ${JSON.stringify(focus ?? undefined)}, ${stays})`,
 		);
@@ -294,14 +293,14 @@ const notificationClick: Scenario = async (context) => {
 // A crash on the Mac: the profile never closes, so its banner stays in
 // macOS's center, as the copy's own site reads it (getNotifications(), which
 // Chrome's services filter by the copy's profile id, a random UUID: never
-// another copy's), seconds after its show (W10h). As the next launch makes
-// Chrome's bridge, at the Default profile's load, the bridge closes this
+// another copy's), seconds after its show (commit 5cd22d7). As the next launch
+// makes Chrome's bridge, at the Default profile's load, the bridge closes this
 // data's profiles' notifications by their ids (patch 0004; the user's call,
 // 2026-11-19), with no profile loaded and before the PIN: after it, the site
-// finds none (W10i). A read drops from the profile's database what the center
-// doesn't list yet, so each banner is read once, 10 s after its show, and one
-// the center was slower with (once in four reads in W10i) is followed by
-// another, under a tag of its own.
+// finds none (commit 3fc05c1). A read drops from the profile's database what
+// the center doesn't list yet, so each banner is read once, 10 s after its
+// show, and one the center was slower with (once in four reads, 2026-11-19) is
+// followed by another, under a tag of its own.
 async function crashOnTheMac(
 	context: ScenarioContext,
 	app: PaneApp,
@@ -438,11 +437,12 @@ async function outOfCenter(appId: string, moment: string, profileId?: string) {
 // site's notification in its own center, a popup window of Pane's process at
 // the screen's corner, and each one there held its profile open, so the Lock
 // that came while one showed found the profile open and quit Pane, the popup
-// beside the PIN until then (W10f). The Lock takes it from Chrome's center:
-// Pane stays, locked, the profile closed and the data with it, and nothing of
-// the notification shows. The copy's own shortcut, which its first launch
-// made as the install makes the user's (pane/app/data_launch_win.cc), is the
-// one deleted: the user's Start menu is never read or written.
+// beside the PIN until then (until commit dde4090). The Lock takes it from
+// Chrome's center: Pane stays, locked, the profile closed and the data with it,
+// and nothing of the notification shows. The copy's own shortcut, which its
+// first launch made as the install makes the user's
+// (pane/app/data_launch_win.cc), is the one deleted: the user's Start menu is
+// never read or written.
 async function lockWithChromesCenter(
 	app: PaneApp,
 	profileId: string,

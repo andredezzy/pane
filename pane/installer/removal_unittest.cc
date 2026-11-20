@@ -142,9 +142,10 @@ TEST_F(RemovalTest, LeavesTheFilesUntilUnregistered) {
   EXPECT_TRUE(base::PathExists(installed_.Append(L"locales\\en-US.pak")));
 }
 
-// A file another program holds stays, and says so (W7b's "Try again" with
-// no button behind it): a Try again then removes what is left, with
-// chrome.exe gone already and nothing unregistered twice.
+// A file another program holds stays, and says so (the first installer's "Try
+// again" had no button behind it, until commit 4fb6caa): a Try again then
+// removes what is left, with chrome.exe gone already and nothing unregistered
+// twice.
 TEST_F(RemovalTest, TryAgainRemovesWhatIsLeft) {
   base::File held(installed_.Append(L"locales\\en-US.pak"),
                   base::File::FLAG_OPEN | base::File::FLAG_READ);

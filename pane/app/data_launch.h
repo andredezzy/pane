@@ -30,11 +30,12 @@ namespace pane {
 // earlier Pane left is brought up to date, and the data's lock taken, before
 // the engine starts; the vault and the lock open once the thread pool runs;
 // and the data closes once the engine has stopped. The encrypted volume and
-// every earlier Pane's data are the Mac's alone (ADR 0113, 0114, 0122): no
-// Pane ever ran on Windows, whose data has no volume and is sealed under
-// os_crypt's DPAPI key, the PIN guarded by the TPM (U5). Each system's launch
-// is its own (data_launch_mac.cc, data_launch_win.cc); what the data does
-// once it opens is one (data_launch.cc).
+// every earlier Pane's data are the Mac's alone (ADR 0113, 0114, 0122):
+// Windows' first Pane, 0.21.0, wrote today's formats, its data with no volume
+// and sealed under os_crypt's DPAPI key, the PIN guarded by the TPM (ADR
+// 0124's U5). Each system's launch is its own (data_launch_mac.cc,
+// data_launch_win.cc); what the data does once it opens is one
+// (data_launch.cc).
 
 // Pane's data folder: a scenario's (PANE_DATA_DIR), or the one under the
 // home (DefaultDataDirectory).
@@ -42,7 +43,7 @@ base::FilePath DataDirectory();
 
 // xyz.roundedcorners.pane in the user's Application Support (ADR 0114), or in
 // a home of a scenario's own (CFFIXED_USER_HOME); on Windows, Pane in the
-// user's local application data (W3).
+// user's local application data (ADR 0121).
 base::FilePath DefaultDataDirectory();
 
 // Before the engine starts, from PaneMainDelegate::BasicStartupComplete, with
@@ -191,7 +192,7 @@ class AppData {
   [[nodiscard]] virtual base::OnceCallback<void(bool every_closed)>
   CloseData() = 0;
 
-  // What the PIN screen shows (L1): its entry while it shows, the wrong
+  // What the PIN screen shows (Paper 07.1): its entry while it shows, the wrong
   // PINs at the lock in a row that count toward the panic wipe, none on a
   // seal the TPM guards (AppLock::AttemptsTowardWipe), and how far the
   // data's one-time move has come while it moves (Paper 07.5).

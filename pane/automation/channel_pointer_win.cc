@@ -56,8 +56,8 @@ base::ScopedClosureRunner ChannelPointer::KeepSystemPointerOut() {
   // shows, hides, or moves there, where the pointer rests: a button's
   // tooltip, shown under the channel's pointer, sent Pane's window one at
   // the VM's own pointer, elsewhere on the window, and the button's hover
-  // left it 0.5 s after the channel's move (W10f). The UI thread's queue,
-  // where every window of the app takes its input: a hook on it alone.
+  // left it 0.5 s after the channel's move (commit dde4090). The UI thread's
+  // queue, where every window of the app takes its input: a hook on it alone.
   HHOOK hook = ::SetWindowsHookExW(WH_GETMESSAGE, &DropSystemPointer, nullptr,
                                    ::GetCurrentThreadId());
   if (!hook) {

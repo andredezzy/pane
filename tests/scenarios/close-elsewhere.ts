@@ -2,9 +2,9 @@ import { launchPane, tabOf } from "../lib/pane";
 import { expect, type Scenario } from "../run";
 
 // A tab closed in a profile that isn't the one showing leaves the window
-// where it is (W9a, found by hand in the test VM): closing the tab a hidden
-// profile last showed has Chrome's tab strip of that profile's Browser make
-// its next page active, which Pane took for an extension's request to show
+// where it is (found by hand in the test VM, 2026-11-16): closing the tab a
+// hidden profile last showed has Chrome's tab strip of that profile's Browser
+// make its next page active, which Pane took for an extension's request to show
 // it, and the window moved to that profile. The tab's X and its menu's Close
 // tab both close through the channel's closeTab, as here.
 const closeElsewhere: Scenario = async (context) => {

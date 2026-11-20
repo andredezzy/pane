@@ -13,19 +13,18 @@ import {
 import { imagesAttachedIn, mountedAt } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
-// L3's disk check behind the Lock (docs/plans/views-migration.md, Phase 3;
-// memory: check claims by grepping disk): a rich session on a host of its own
-// (cookies, both storages, IndexedDB and a blob, CacheStorage, a service
-// worker, the origin private file system, an extension's storage, a
+// The disk check behind the Lock (commit 5324f01): a rich session on a host of
+// its own (cookies, both storages, IndexedDB and a blob, CacheStorage, a
+// service worker, the origin private file system, an extension's storage, a
 // download), the PIN set, then Lock Pane. Once the volume has detached, every
 // file of the data root, the throwaway home, and the Mac's temporary folder is
 // read: none holds a planted value, its host, or its pages, in clear or as an
 // unkeyed hash, and none reads as plain where ADR 0121 says ciphertext. Two
 // controls: a file planted in the data root holding one of the values, which
-// the same audit must find; and the PIN bringing the session back, read
-// through its page, so what was looked for was there to find. Run against the
-// Views build and the published Pane alike (--binary): the same host, the
-// same session.
+// the same audit must find; and the PIN bringing the session back, read through
+// its page, so what was looked for was there to find. Run against the Views
+// build and the published Pane alike (--binary): the same host, the same
+// session.
 const lockDisk: Scenario = async (context) => {
 	const session = await richSession(context);
 	const { app, planted, roots } = session;

@@ -271,7 +271,7 @@ class CaptionButton : public views::Button {
   }
 
   // Each reads its name, as Chrome names them, and Narrator reaches them as
-  // the title bar's buttons (W8 checks it with UI Automation).
+  // the title bar's buttons (checked with UI Automation, commit 490757e).
   void UpdateName() {
     switch (kind_) {
       case Kind::kMinimize:

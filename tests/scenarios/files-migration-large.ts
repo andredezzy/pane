@@ -14,7 +14,7 @@ import { expect, type Scenario } from "../run";
 // Where it runs (lib/platform.ts).
 export const notOnWindows: NotOnWindows = {
 	macOnly:
-		"every row of ADR 0122's table is an earlier Pane's data on the Mac: here a large profile one before 0.18.0 wrote; no Pane was ever published for Windows, so every profile there starts encrypted (W2)",
+		"every row of ADR 0122's table is an earlier Pane's data on the Mac: here a large profile one before 0.18.0 wrote; Windows' first Pane, 0.21.0, wrote ADR 0121's formats from the start, so no profile there needs converting",
 };
 
 // A large profile an earlier Pane wrote (PANE_EARLIER_BUILDS, the first whose

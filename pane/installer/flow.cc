@@ -786,8 +786,8 @@ void UninstallFlow::ShowStep(Step step) {
       break;
     case Step::kDone:
       screen.title = u"Pane is uninstalled";
-      // Where there was no data, nothing stays to say so of (W8c found the
-      // line where the data had been cleared before).
+      // Where there was no data, nothing stays to say so of (until commit
+      // f475f04 the line showed where the data had been cleared before).
       if (erase_) {
         screen.message = u"Pane and its data are gone from this PC.";
       } else if (has_data_) {

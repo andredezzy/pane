@@ -47,7 +47,7 @@ namespace pane {
 // The menu runs its own loop and takes the keys while it shows, so it shows
 // only where Pane may take the front (MayTakeFront): a scenario's copy in the
 // background builds it, filtered, and the channel reads it and chooses from
-// its model as a click does, as the sidebar's row menus are read (H2).
+// its model as a click does, as the sidebar's row menus are read.
 class PageContextMenus {
  public:
   PageContextMenus();

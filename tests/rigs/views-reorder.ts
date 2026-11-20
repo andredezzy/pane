@@ -4,14 +4,14 @@ import { type AppState, launchPane, tabOf } from "../lib/pane";
 import { swiftTool } from "../lib/tools";
 import { expect, type Scenario } from "../run";
 
-// H3, reorder (docs/plans/views-migration.md, Phase 3), on the Views build,
-// in the background. Its renders: a tab dragged down its profile as the
-// Swift's surfaces rig dragged Docs (surfaces-sidebar-reorder-dragging), the
-// rows mid-slide, a profile dragged as Paper 03.11 draws one, and the sidebar
-// after each drop beside the same order reached with no drag, which must
-// match it to the pixel: a drop leaves nothing behind. And a drag step's
-// time, from its event to the window's layout, over 120 moves through the
-// profiles and through a profile's tabs, as ADR 0066 timed the Swift's.
+// Reorder (ADR 0066, commit 9d77967), on the Views build, in the background.
+// Its renders: a tab dragged down its profile as the Swift's surfaces rig
+// dragged Docs (surfaces-sidebar-reorder-dragging), the rows mid-slide, a
+// profile dragged as Paper 03.11 draws one, and the sidebar after each drop
+// beside the same order reached with no drag, which must match it to the pixel:
+// a drop leaves nothing behind. And a drag step's time, from its event to the
+// window's layout, over 120 moves through the profiles and through a profile's
+// tabs, as ADR 0066 timed the Swift's.
 //
 //   bun tests/run.ts --binary ~/chromium/src/out/Release/Pane.app/Contents/MacOS/Pane \
 //     --out <dir> [--appearance light|dark] tests/rigs/views-reorder.ts

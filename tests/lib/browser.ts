@@ -44,7 +44,8 @@ export const appOf = bySystem({
 
 // The app's resource `name` (crl-set): in the bundle's Resources on the Mac;
 // beside chrome.exe on Windows, where Chromium's assets are (DIR_ASSETS, its
-// module's folder). Which resources Windows' package carries is W7's.
+// module's folder). Which resources Windows' package carries is
+// packaging/windows/pane.release's.
 export const appResource = bySystem({
 	mac: (binary: string, name: string) =>
 		join(appOf(binary), "Contents", "Resources", name),

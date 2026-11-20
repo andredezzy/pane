@@ -78,9 +78,8 @@ const sleep: Scenario = async (context) => {
 		(state) => loaded(state, a3) && !tabOf(state, a3)?.loading,
 	);
 
-	// The Views build docks DevTools with "What Chrome asks for"
-	// (docs/plans/views-migration.md), until which a3 is one more background
-	// tab.
+	// The Views build docks DevTools since commit c3997e2; in a build before
+	// it, a3 is one more background tab.
 	const devTools = await app.send("toggleDevTools").then(
 		() => true,
 		(error: Error) => {

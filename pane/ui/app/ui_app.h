@@ -250,7 +250,7 @@ class UiApp : public AppData::Client,
   void SecurityChanged() override;
   void PinShook() override;
 
-  // LockTriggers::Delegate: what locks Pane by itself (L2, ADR 0116).
+  // LockTriggers::Delegate: what locks Pane by itself (ADR 0116).
   void LockFromSystem() override;
   std::optional<base::TimeDelta> LockAfter() const override;
   // A page plays sound or shows in picture-in-picture.
@@ -483,8 +483,8 @@ class UiApp : public AppData::Client,
   // The page's right-click menu, Chrome's own (U2).
   std::unique_ptr<PageContextMenus> context_menus_;
   // The window's extensions: the toolbar's actions and puzzle, the menus,
-  // an action's popup (X1, X2). Made before the window, which shows them,
-  // and gone after it.
+  // an action's popup (ADR 0054). Made before the window, which shows them, and
+  // gone after it.
   std::unique_ptr<ExtensionsUi> extensions_;
   std::unique_ptr<AppEvents> events_;
   std::unique_ptr<Automation> automation_;

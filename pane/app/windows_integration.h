@@ -111,7 +111,7 @@ DWORD Unregister(const base::FilePath& chrome_exe,
 // What PointShortcutsAt did: the shortcuts it rewrote, and those it found
 // and couldn't read or rewrite. Another program may hold one: Windows' shell
 // maps Start's shortcut while it reads it for Pane's taskbar button, and an
-// overwrite meanwhile fails with ERROR_USER_MAPPED_FILE (W10a).
+// overwrite meanwhile fails with ERROR_USER_MAPPED_FILE (ADR 0089).
 struct PointedShortcuts {
   int rewritten = 0;
   int failed = 0;

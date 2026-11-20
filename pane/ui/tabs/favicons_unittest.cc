@@ -171,7 +171,7 @@ TEST(FaviconsTest, OnlyTheLatestOfThePagesFaviconsIsSaved) {
 // A page whose new document ends its load with no icon of its own: the row
 // draws the placeholder at once, the last page's image gone, and the encode
 // of that image for the save, still under way, saves nothing (the stale
-// icon of W9a and W9b, the user's call of 2026-11-17).
+// icon found by hand on each system, the user's call of 2026-11-17).
 TEST(FaviconsTest, ARemovedIconDrawsThePlaceholderAndSavesNothing) {
   base::test::TaskEnvironment environment;
   Favicons favicons;

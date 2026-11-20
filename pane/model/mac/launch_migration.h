@@ -20,7 +20,7 @@ class LaunchAlert;
 // the launch never looks hung, and while the Electron app runs, whose files may
 // be mid-write, Pane waits for it to quit, or quits itself, having written
 // nothing. Then the exit code it quits with is returned. Blocks, before the
-// thread pool exists (docs/plans/views-migration.md, C5).
+// thread pool exists (PaneMainDelegate::BasicStartupComplete, ADR 0010).
 std::optional<int> RunLaunchMigration(const ElectronSource& source,
                                       const base::FilePath& data_directory,
                                       SafeStorage safe_storage,

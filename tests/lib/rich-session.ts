@@ -41,9 +41,9 @@ export type RichSession = {
 // own, so what Pane's processes make there is theirs alone. On the Mac the
 // data root is the one the home gives (`derivedDataRoot`), so the caches'
 // folder is the link a Mac's is, and the temporary folder is the home's
-// tmp. Windows' test copy names its data (PANE_DATA_DIR, where W3 puts a
-// user's: AppData\Local\Pane), which must lie in the temporary folder: the
-// home is that folder, its caches in each profile's folder.
+// tmp. Windows' test copy names its data (PANE_DATA_DIR, where Pane puts a
+// user's in AppData\Local\Pane, ADR 0121), which must lie in the temporary
+// folder: the home is that folder, its caches in each profile's folder.
 export function sessionFolders(context: ScenarioContext, binary?: string) {
 	const home = realpathSync(context.tempDir("pane-rich-home-"));
 

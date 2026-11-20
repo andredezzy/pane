@@ -85,7 +85,7 @@ source_set("sqlite") {
 }
 
 # The conversion of an earlier Pane's profiles (ADR 0121, 0122): the Mac's
-# alone, since no Pane ever ran on Windows (docs/plans/views-migration.md, W2).
+# alone, since Windows' first Pane, 0.21.0, wrote today's formats.
 source_set("migration") {
   sources = [
     "profile_migration.cc",
@@ -143,9 +143,9 @@ test("pane_unittests") {
   ]
 
   # The Mac's own part of the model: the volume, the wipe, and the paths an
-  # earlier Pane on the Mac updates by, and the conversion of an earlier
-  # Pane's profiles, which no Windows Pane has (docs/plans/views-migration.md,
-  # W2); and each OS's own forms of a root (engine_keys_<os>_unittest.cc).
+  # earlier Pane on the Mac updates by, and the conversion of an earlier Pane's
+  # profiles, which no Windows Pane has; and each OS's own forms of a root
+  # (engine_keys_<os>_unittest.cc).
   if (is_mac) {
     sources += [
       "engine_keys_mac_unittest.cc",
