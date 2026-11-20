@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "base/strings/strcat.h"
@@ -196,6 +197,27 @@ TEST(UpdatesTest, Failures) {
                         ReleasesURL(), kMacDmg);
   ASSERT_FALSE(invalid_version.has_value());
   EXPECT_EQ(invalid_version.error(), UpdateCheckError::kInvalidVersion);
+}
+
+// The latest release's version, read from its tag whether it is newer or not
+// and whether or not it carries this system's file, as a staged update is
+// compared with it; nothing from what is no release.
+TEST(UpdatesTest, LatestReleaseVersion) {
+  EXPECT_EQ(LatestReleaseVersion(Release("v0.21.1", {"Pane-0.21.1-arm64.dmg"})),
+            "0.21.1");
+  EXPECT_EQ(LatestReleaseVersion(Release("V0.21.1", {})), "0.21.1");
+  EXPECT_EQ(LatestReleaseVersion(Release("1.0.0", {"Pane-1.0.0-x64.exe"})),
+            "1.0.0");
+  // Older than the running app, and offering it nothing.
+  const std::string older = Release("v0.1.0", {"Pane-0.1.0-arm64.dmg"});
+  EXPECT_EQ(Available(older), std::nullopt);
+  EXPECT_EQ(LatestReleaseVersion(older), "0.1.0");
+  // GitHub's rate limit, a tag without a release's assets, and what isn't
+  // JSON.
+  EXPECT_EQ(LatestReleaseVersion(R"({"message":"rate limited"})"),
+            std::nullopt);
+  EXPECT_EQ(LatestReleaseVersion(R"({"tag_name":"v1.0.0"})"), std::nullopt);
+  EXPECT_EQ(LatestReleaseVersion("<html>"), std::nullopt);
 }
 
 // The time left is a coarse bucket (format-eta.ts's buckets).
@@ -461,8 +483,8 @@ TEST(UpdateInstallTest, Staging) {
 }
 
 // A newer offer replaces what is staged, compared part by part; the staged
-// version itself, an older offer (a release rolled back), and a version that
-// doesn't parse leave it to install.
+// version itself, an older offer (a release withdrawn, which the next rule
+// takes back), and a version that doesn't parse leave it.
 TEST(UpdateInstallTest, NewerOfferReplacesStaged) {
   EXPECT_TRUE(ReplacesStagedUpdate("0.20.0", "0.19.2"));
   EXPECT_TRUE(ReplacesStagedUpdate("0.19.10", "0.19.9"));
@@ -471,6 +493,28 @@ TEST(UpdateInstallTest, NewerOfferReplacesStaged) {
   EXPECT_FALSE(ReplacesStagedUpdate("0.19.2", "0.20.0"));
   EXPECT_FALSE(ReplacesStagedUpdate("0.21.x", "0.20.0"));
   EXPECT_FALSE(ReplacesStagedUpdate("0.21.0", ""));
+}
+
+// An older latest release takes back what is staged, compared part by part:
+// a release withdrawn after it staged installs nowhere. The staged version
+// itself, a newer one (which replaces it instead), and a version that doesn't
+// parse leave it.
+TEST(UpdateInstallTest, OlderLatestWithdrawsStaged) {
+  EXPECT_TRUE(WithdrawsStagedUpdate("0.21.1", "0.21.2"));
+  EXPECT_TRUE(WithdrawsStagedUpdate("0.19.9", "0.19.10"));
+  EXPECT_TRUE(WithdrawsStagedUpdate("v0.20.1", "1.0.0"));
+  EXPECT_TRUE(WithdrawsStagedUpdate("0.0.1", "99.0.0"));
+  EXPECT_FALSE(WithdrawsStagedUpdate("0.21.2", "0.21.2"));
+  EXPECT_FALSE(WithdrawsStagedUpdate("0.22.0", "0.21.2"));
+  EXPECT_FALSE(WithdrawsStagedUpdate("next", "0.21.2"));
+  EXPECT_FALSE(WithdrawsStagedUpdate("0.21.1", ""));
+  // Never both rules for one answer.
+  for (const auto& [latest, staged] :
+       std::vector<std::pair<std::string, std::string>>{
+           {"0.21.1", "0.21.2"}, {"0.21.2", "0.21.2"}, {"0.22.0", "0.21.2"}}) {
+    EXPECT_FALSE(WithdrawsStagedUpdate(latest, staged) &&
+                 ReplacesStagedUpdate(latest, staged));
+  }
 }
 
 // Mounts a dmg at a folder named for its process, and knows one whose process

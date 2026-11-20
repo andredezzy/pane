@@ -41,6 +41,10 @@ bool ReplacesStagedUpdate(std::string_view offered, std::string_view staged) {
   return IsNewerVersion(offered, staged).value_or(false);
 }
 
+bool WithdrawsStagedUpdate(std::string_view latest, std::string_view staged) {
+  return IsNewerVersion(staged, latest).value_or(false);
+}
+
 std::string UpdateMountName(int32_t pid) {
   // In capitals, as every Pane before this one named its mounts.
   return base::StrCat(

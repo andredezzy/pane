@@ -35,6 +35,14 @@ struct Asset {
   std::optional<std::string> digest;
 };
 
+// A release's version, its tag without a leading "v".
+std::string_view VersionOfTag(std::string_view tag) {
+  if (tag.starts_with('v') || tag.starts_with('V')) {
+    tag.remove_prefix(1);
+  }
+  return tag;
+}
+
 }  // namespace
 
 const GURL& ReleasesURL() {
@@ -72,10 +80,7 @@ AvailableUpdateIn(std::string_view release_json,
     }
   }
 
-  std::string_view version = tag;
-  if (version.starts_with('v') || version.starts_with('V')) {
-    version.remove_prefix(1);
-  }
+  const std::string_view version = VersionOfTag(tag);
   if (!file) {
     return std::nullopt;
   }
@@ -95,6 +100,18 @@ AvailableUpdateIn(std::string_view release_json,
       .version = std::string(version),
       .file_url = file_url,
       .sha256 = file->digest ? Sha256FromDigest(*file->digest) : std::nullopt};
+}
+
+std::optional<std::string> LatestReleaseVersion(std::string_view release_json) {
+  const std::optional<base::Value> release =
+      base::JSONReader::Read(release_json, base::JSON_PARSE_RFC);
+  ValueReader reader(release ? &*release : nullptr);
+  const std::string tag = reader.String("tag_name");
+  const base::Value* assets = reader.Required("assets");
+  if (!reader.ok() || !assets || !assets->is_list()) {
+    return std::nullopt;
+  }
+  return std::string(VersionOfTag(tag));
 }
 
 std::optional<std::string> Sha256FromDigest(std::string_view digest) {

@@ -44,7 +44,12 @@ import { expect, type Scenario } from "../run";
 // exited), and opened again by Restart to update, the old app and the file
 // removed. A newer release replaces what is staged: the copy and its file go,
 // a quit while the newer one downloads installs nothing, and the newer one,
-// staged in turn, installs. Where the swap runs once Pane has exited
+// staged in turn, installs. A release withdrawn after it staged installs
+// nowhere: a check whose latest release is older takes the staged copy and its
+// file away, the pill with it, and the next quit installs nothing, where a
+// check that fails (GitHub's rate limit) keeps it, as it says nothing of the
+// release; on Windows a version the last exit left staged goes the same way
+// at the next launch. Where the swap runs once Pane has exited
 // (Windows'), a file of the app held open fails it: it rolls back, Pane opens
 // as it was and says so above the pill (Paper 11.12.14, E), and the next
 // exit installs it. There the helper has the new version register Pane with
@@ -75,6 +80,10 @@ const updateInstall: Scenario = async (context) => {
 	};
 
 	let offer = dmgs.mismatched;
+	// What the latest release answers: the offer; GitHub's rate limit, a check
+	// that fails; or a release older than every stand-in, as one withdrawn
+	// after it staged leaves the latest.
+	let latest: "offer" | "rate-limited" | "withdrawn" = "offer";
 	let origin = "";
 	// While set, the newer dmg's download waits for it: a quit comes mid-way.
 	let held: Promise<void> | undefined;
@@ -86,8 +95,15 @@ const updateInstall: Scenario = async (context) => {
 			const { pathname } = new URL(request.url);
 
 			if (pathname === "/releases/latest") {
+				if (latest === "rate-limited") {
+					return Response.json(
+						{ message: "API rate limit exceeded" },
+						{ status: 403 },
+					);
+				}
+
 				return Response.json({
-					tag_name: `v${offer.version}`,
+					tag_name: latest === "withdrawn" ? "v0.0.1" : `v${offer.version}`,
 					published_at: "2026-10-29T00:00:00Z",
 					assets: [
 						{
@@ -290,6 +306,16 @@ const updateInstall: Scenario = async (context) => {
 			? await failedSwap(context, `${origin}/releases/latest`)
 			: undefined;
 
+		// The same, withdrawn before the launch that keeps it: the next launch's
+		// check takes it away, and its exit installs nothing.
+		const keptWithdrawn = SWAP_AFTER_EXIT
+			? await failedSwap(context, `${origin}/releases/latest`, () => {
+					latest = "withdrawn";
+				})
+			: undefined;
+
+		latest = "offer";
+
 		// One Pane can't install itself: Quit and install shows the installer
 		// (opened here by no one, PANE_UPDATE_OPEN=0) and quits, the copy as
 		// it was, for the user to install the new one.
@@ -306,6 +332,73 @@ const updateInstall: Scenario = async (context) => {
 		expect(
 			version(byHand.bundle) === before && !byHandOpened,
 			`${QUIT_WORD} and install left ${version(byHand.bundle)}, reopened: ${byHandOpened}`,
+		);
+
+		// A release withdrawn after it staged (found 2026-11-20): staged 99.0.0,
+		// a check that fails keeps it, Restart to update still on offer; a
+		// check whose latest release is older than it takes the staged copy
+		// and its file away, the pill with it, and a quit installs nothing.
+		offer = dmgs.good;
+		const pulled = await launchCopy(context, `${origin}/releases/latest`);
+		const pulledOwn = version(pulled.bundle);
+		const pulledFile = () => existsSync(join(pulled.downloads, dmgs.good.name));
+
+		await download(pulled.app);
+
+		expect(
+			(await pulled.app.state()).update.installsItself &&
+				stagedVersion(pulled.bundle, "99.0.0") === "99.0.0" &&
+				pulledFile(),
+			`99.0.0 was not staged: beside ${leftovers(pulled.bundle).join(", ")}`,
+		);
+
+		latest = "rate-limited";
+		await pulled.app.send("checkUpdates");
+		await Bun.sleep(1_200);
+		const rateLimited = (await pulled.app.state()).update;
+
+		expect(
+			rateLimited.status === "downloaded" &&
+				rateLimited.installsItself &&
+				rateLimited.pill &&
+				rateLimited.label === "Restart to update" &&
+				stagedVersion(pulled.bundle, "99.0.0") === "99.0.0" &&
+				pulledFile(),
+			`after a check that failed: ${JSON.stringify(rateLimited)}, beside ${leftovers(pulled.bundle).join(", ")}`,
+		);
+
+		latest = "withdrawn";
+		await pulled.app.send("checkUpdates");
+
+		const takenBack = await pulled.app.waitFor(
+			"the withdrawn update off offer",
+			(state) =>
+				state.update.status === "idle" &&
+				!state.update.pill &&
+				!state.update.installsItself,
+			10_000,
+		);
+
+		await settle(() => leftovers(pulled.bundle).length === 0 && !pulledFile());
+
+		expect(
+			takenBack.update.available === null &&
+				leftovers(pulled.bundle).length === 0 &&
+				!pulledFile(),
+			`the withdrawn update: ${JSON.stringify(takenBack.update)}, beside ${[...leftovers(pulled.bundle), ...readdirSync(pulled.downloads)].join(", ")}`,
+		);
+
+		const pulledPid = pulled.app.browser.pid;
+		await pulled.app.send("quit").catch(() => undefined);
+		await exited(pulledPid);
+		await Bun.sleep(1_500);
+		latest = "offer";
+
+		expect(
+			version(pulled.bundle) === pulledOwn &&
+				!(await reopenedFrom(pulled.bundle, pulled.app.dataDir)) &&
+				leftovers(pulled.bundle).length === 0,
+			`after the quit: the app at ${version(pulled.bundle)}, beside ${leftovers(pulled.bundle).join(", ")}`,
 		);
 
 		// A newer release replaces what is staged: staged 99.0.0, then offered
@@ -436,7 +529,7 @@ const updateInstall: Scenario = async (context) => {
 		await expectRegistrationLeft(again, entry);
 
 		return timing || failed
-			? { restart: timing, failedSwap: failed }
+			? { restart: timing, failedSwap: failed, keptWithdrawn }
 			: undefined;
 	} finally {
 		server.stop(true);
@@ -547,7 +640,15 @@ async function quitReopened(app: PaneApp, bundle: string) {
 // update fails and rolls back, opening the old Pane, which says so above the
 // pill and in Settings and still offers Restart to update. Once the file is
 // let go, the next exit installs it, and nothing is left behind.
-async function failedSwap(context: Parameters<Scenario>[0], releases: string) {
+// With `withdraw`, the release is withdrawn before the press (the latest
+// release older than the one staged): the launch that keeps the staged
+// version, whose check answers with it, takes it away instead of offering it,
+// and its exit installs nothing.
+async function failedSwap(
+	context: Parameters<Scenario>[0],
+	releases: string,
+	withdraw?: () => void,
+) {
 	const copy = await launchCopy(context, releases);
 	const own = version(copy.bundle);
 	await download(copy.app);
@@ -578,8 +679,13 @@ async function failedSwap(context: Parameters<Scenario>[0], releases: string) {
 		);
 
 		const pid = copy.app.browser.pid;
+		withdraw?.();
 		await copy.app.send("restartToUpdate").catch(() => undefined);
 		await exited(pid);
+
+		if (withdraw) {
+			return await keptButWithdrawn(copy, own);
+		}
 
 		const back = await copy.app.waitFor(
 			"the old Pane opened again, saying the update didn't install",
@@ -623,6 +729,48 @@ async function failedSwap(context: Parameters<Scenario>[0], releases: string) {
 	);
 
 	return { installedAtTheNextExit: true };
+}
+
+// The old Pane opened again after a failed swap, its staged version withdrawn
+// meanwhile: its check takes the staged copy and its file away, with no line
+// above the pill and no pill, and its exit installs nothing.
+async function keptButWithdrawn(
+	copy: Awaited<ReturnType<typeof launchCopy>>,
+	own: string,
+) {
+	const nothingLeft = () =>
+		leftovers(copy.bundle).length === 0 &&
+		readdirSync(copy.downloads).length === 0;
+
+	const back = await copy.app.waitFor(
+		"the old Pane opened again, its update checked",
+		(state) => dataOpen(state) && state.update.checked,
+		60_000,
+	);
+
+	await settle(nothingLeft);
+	const after = (await copy.app.state()).update;
+
+	expect(
+		version(copy.bundle) === own &&
+			nothingLeft() &&
+			!after.installsItself &&
+			!after.installFailed &&
+			!after.pill,
+		`the withdrawn update the last exit kept: the app at ${version(copy.bundle)}, ${JSON.stringify({ back: back.update, after })}, beside ${[...leftovers(copy.bundle), ...readdirSync(copy.downloads)].join(", ")}`,
+	);
+
+	await copy.app.send("quit").catch(() => undefined);
+	await Bun.sleep(3_000);
+
+	expect(
+		version(copy.bundle) === own &&
+			!(await reopenedFrom(copy.bundle, copy.app.dataDir)) &&
+			nothingLeft(),
+		`the exit after the withdrawal left the app at ${version(copy.bundle)}, beside ${leftovers(copy.bundle).join(", ")}`,
+	);
+
+	return { withdrawnAtTheNextLaunch: true };
 }
 
 // A real release's dmg (scripts/dist.sh's), installed by the run's Pane, as a

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -15,6 +16,7 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
+#include "base/memory/ref_counted.h"
 #include "base/path_service.h"
 #include "base/strings/escape.h"
 #include "base/strings/strcat.h"
@@ -128,6 +130,34 @@ std::optional<base::FilePath> CheckAndSave(base::FilePath downloaded,
 }
 
 }  // namespace
+
+// A staged copy on its way out, with its file: the installer's sequence
+// removes them, or the quit does if that sequence hasn't begun to
+// (InstallAtQuit), whichever comes first and never both.
+class Updater::Unstaging : public base::RefCountedThreadSafe<Unstaging> {
+ public:
+  Unstaging(base::FilePath staged, base::FilePath file)
+      : staged_(std::move(staged)), file_(std::move(file)) {}
+  Unstaging(const Unstaging&) = delete;
+  Unstaging& operator=(const Unstaging&) = delete;
+
+  // Removes them, unless that has begun already. Blocks.
+  void Run(const UpdateInstaller& installer) {
+    if (!begun_.exchange(true)) {
+      installer.Unstage(staged_, file_);
+    }
+  }
+
+  bool begun() const { return begun_.load(); }
+
+ private:
+  friend class base::RefCountedThreadSafe<Unstaging>;
+  ~Unstaging() = default;
+
+  const base::FilePath staged_;
+  const base::FilePath file_;
+  std::atomic_bool begun_{false};
+};
 
 Updater::Config::Config() = default;
 Updater::Config::Config(const Config&) = default;
@@ -258,8 +288,10 @@ void Updater::Check(base::OnceCallback<void(bool)> done) {
       kMaxReleaseSize);
 }
 
-// Offline, rate-limited, or a bad answer: what was on offer stays. The
-// checking state holds 0.8 s at least, so a click visibly does something.
+// Offline, rate-limited, or a bad answer: what was on offer stays, and so does
+// what is staged, since such a check says nothing of the release, which the
+// staged copy matched when it staged (ADR 0092). The checking state holds
+// 0.8 s at least, so a click visibly does something.
 void Updater::Checked(base::OnceCallback<void(bool)> done,
                       base::TimeTicks started,
                       std::optional<std::string> body) {
@@ -271,28 +303,33 @@ void Updater::Checked(base::OnceCallback<void(bool)> done,
 
   bool completed = false;
   std::optional<model::AvailableUpdate> update;
+  std::optional<std::string> latest;
   if (code == 200 && body) {
     auto found =
         model::AvailableUpdateIn(*body, current_version_, config_.releases_url);
     completed = found.has_value();
     if (completed) {
       update = std::move(*found);
+      latest = model::LatestReleaseVersion(*body);
     }
   }
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&Updater::Settle, weak_factory_.GetWeakPtr(),
-                     std::move(done), completed, std::move(update)),
+                     std::move(done), completed, std::move(update),
+                     std::move(latest)),
       std::max(model::kMinimumChecking - (base::TimeTicks::Now() - started),
                base::TimeDelta()));
 }
 
 void Updater::Settle(base::OnceCallback<void(bool)> done,
                      bool completed,
-                     std::optional<model::AvailableUpdate> update) {
+                     std::optional<model::AvailableUpdate> update,
+                     std::optional<std::string> latest) {
   checking_ = false;
   if (completed) {
     last_checked_at_ = base::Time::Now();
+    latest_version_ = std::move(latest);
     Offer(std::move(update));
   } else {
     LOG(ERROR) << "The update check failed";
@@ -308,7 +345,9 @@ void Updater::Settle(base::OnceCallback<void(bool)> done,
 // Staged by an earlier run, and not installed at its exit: the next exit
 // installs it, and Restart to update offers it at once, before the check
 // has answered, with E's line where the last swap failed (Paper 11.12.14). A
-// check that answered first with a newer release replaces it, as any does.
+// check that answered first with a newer release replaces it, as any does,
+// and one whose latest is older takes it back: a release withdrawn after it
+// staged, which the launch's check takes back too when it answers after.
 void Updater::KeptFromLastExit(std::optional<UpdateInstaller::Kept> kept) {
   if (!kept || staged() || status_ == Status::kDownloading) {
     return;
@@ -317,8 +356,9 @@ void Updater::KeptFromLastExit(std::optional<UpdateInstaller::Kept> kept) {
   downloaded_version_ = kept->version;
   downloaded_file_ = kept->file;
   install_failed_ = kept->not_installed;
-  if (available_ &&
-      model::ReplacesStagedUpdate(available_->version, kept->version)) {
+  if ((available_ &&
+       model::ReplacesStagedUpdate(available_->version, kept->version)) ||
+      Withdrawn(kept->version)) {
     Unstage();
     Notify();
     return;
@@ -340,9 +380,13 @@ void Updater::Offer(std::optional<model::AvailableUpdate> update) {
   available_ = std::move(update);
   // A newer version than the one staged replaces it (ADR 0092): offered as
   // any is, it stages in turn once downloaded, and until then a quit
-  // installs nothing.
-  if (available_ && staged() && downloaded_version_ &&
-      model::ReplacesStagedUpdate(available_->version, *downloaded_version_)) {
+  // installs nothing. An older latest takes it back: a release withdrawn
+  // after it staged installs nowhere, and what the latest is, if newer than
+  // this Pane, is offered as any update is.
+  if (staged() && downloaded_version_ &&
+      ((available_ && model::ReplacesStagedUpdate(available_->version,
+                                                  *downloaded_version_)) ||
+       Withdrawn(*downloaded_version_))) {
     Unstage();
   }
   if (!available_) {
@@ -354,17 +398,27 @@ void Updater::Offer(std::optional<model::AvailableUpdate> update) {
   Notify();
 }
 
+bool Updater::Withdrawn(const std::string& version) const {
+  return latest_version_ &&
+         model::WithdrawsStagedUpdate(*latest_version_, version);
+}
+
 // On the installer's sequence, after the staging that made them and before
-// the next, so a quit meanwhile leaves what the next launch removes
-// (RemoveLeftovers); E's line goes with them, nothing being left to try.
+// the next; a quit before that sequence has begun removes them itself
+// (InstallAtQuit), since on Windows the next launch keeps a whole staged
+// version (RemoveLeftovers) and would offer it again. E's line goes with
+// them, nothing being left to try.
 void Updater::Unstage() {
+  std::erase_if(unstaging_, [](const scoped_refptr<Unstaging>& each) {
+    return each->begun();
+  });
+  auto unstaging = base::MakeRefCounted<Unstaging>(
+      std::exchange(staged_, base::FilePath()),
+      std::exchange(downloaded_file_, base::FilePath()));
+  unstaging_.push_back(unstaging);
   install_runner_->PostTask(
       FROM_HERE,
-      base::BindOnce(
-          [](const UpdateInstaller& installer, const base::FilePath& staged,
-             const base::FilePath& file) { installer.Unstage(staged, file); },
-          *installer_, std::exchange(staged_, base::FilePath()),
-          std::exchange(downloaded_file_, base::FilePath())));
+      base::BindOnce(&Unstaging::Run, std::move(unstaging), *installer_));
   downloaded_version_.reset();
   install_failed_ = false;
 }
@@ -543,7 +597,16 @@ void Updater::Staged(base::FilePath file,
 }
 
 void Updater::InstallAtQuit() {
-  if (!installer_ || !staged()) {
+  if (!installer_) {
+    return;
+  }
+  // What a check took back, if the installer's sequence hasn't begun to
+  // remove it: a quit doesn't wait for that sequence.
+  for (const scoped_refptr<Unstaging>& unstaging :
+       std::exchange(unstaging_, {})) {
+    unstaging->Run(*installer_);
+  }
+  if (!staged()) {
     return;
   }
   std::optional<UpdateInstaller::Relaunch> relaunch;

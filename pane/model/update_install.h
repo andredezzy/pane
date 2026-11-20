@@ -33,9 +33,17 @@ bool IsUpdateLeftover(std::string_view name);
 // no quit installs a version the offer has passed (on 2026-11-12 a Pane with
 // 0.19.2 staged before 0.20.0 was published went to each in turn, two
 // updates and two Keychain prompts). The staged version itself still
-// installs, and so does a version newer than the offer (a release rolled
-// back).
+// installs; one newer than the latest release is a release withdrawn
+// (WithdrawsStagedUpdate).
 bool ReplacesStagedUpdate(std::string_view offered, std::string_view staged);
+
+// Whether a check whose latest release is `latest`, whatever file it carries,
+// takes back the update staged as `staged`: an older latest does, a release
+// withdrawn after it staged, and the staged copy goes with its file, so no
+// quit installs what was taken back for a defect (ADR 0092, 2026-11-20). The
+// staged version itself, a newer one (ReplacesStagedUpdate's), and a version
+// that doesn't parse leave it.
+bool WithdrawsStagedUpdate(std::string_view latest, std::string_view staged);
 
 // Where a dmg mounts, in the temporary folder, while the Pane in it is checked
 // and copied: named for the process that mounted it.

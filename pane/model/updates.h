@@ -75,6 +75,13 @@ AvailableUpdateIn(std::string_view release_json,
                   const GURL& releases_url = ReleasesURL(),
                   std::string_view asset_suffix = kUpdateAssetSuffix);
 
+// The version GitHub's latest-release JSON names, its tag without a leading
+// "v", whatever files the release carries: what a check compares the update
+// staged with (WithdrawsStagedUpdate), where AvailableUpdateIn offers nothing
+// for a release that isn't newer or has no file of this system's. Nullopt for
+// JSON that is not a release.
+std::optional<std::string> LatestReleaseVersion(std::string_view release_json);
+
 // The hex of an asset's digest, which GitHub gives as "sha256:<hex>", or
 // nullopt for another algorithm, or for anything but 64 hex digits.
 std::optional<std::string> Sha256FromDigest(std::string_view digest);
