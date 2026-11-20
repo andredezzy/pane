@@ -1,16 +1,14 @@
 name: Release
 
 # Publishes Pane-<version>-arm64.dmg, the asset the in-app update check
-# reads, when a v* tag is pushed on main, or on the swift branch the Swift
-# line ships its fixes from until main's first release (AGENTS.md). The app is
-# packaged from the engine archive its engine sources name
+# reads, when a v* tag is pushed on main (AGENTS.md). The app is packaged
+# from the engine archive its engine sources name
 # (chromium/prebuilt-engines.tsv), which a developer's Mac built and
 # scripts/publish-engine.sh uploaded as the engine-<key> prerelease
 # (chromium/UPGRADING.md): CI builds no Chromium (ADR 0049). Where the file
 # names a Windows engine for the same key too, the release carries Windows'
 # installer, Pane-<version>-x64.exe, beside the dmg, packaged from it the same
-# way (ADR 0127); until one is published, the dmg alone, as every release so
-# far. The engine's unit tests (pane_unittests) and the scenarios run on that
+# way (ADR 0127); without one, the dmg alone. The engine's unit tests (pane_unittests) and the scenarios run on that
 # Mac before each push and tag (AGENTS.md).
 
 on:
@@ -39,7 +37,7 @@ jobs:
     runs-on: xcode-27
 
     steps:
-      # The whole history, to tell whether the tag is on main or swift.
+      # The whole history, to tell whether the tag is on main.
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -57,18 +55,17 @@ jobs:
           echo "Tag ${GITHUB_REF_NAME} matches packaging/VERSION ${version}."
 
       # The release is published as the latest at once, and every Pane's
-      # update check offers it: a tag on any branch but main and swift
-      # publishes nothing.
-      - name: Verify the tag is on main or swift
+      # update check offers it: a tag on any branch but main publishes
+      # nothing. The swift branch, the Swift line's backup, took tags until
+      # 2026-11-19 (ADR 0124, D1).
+      - name: Verify the tag is on main
         if: github.ref_type == 'tag'
         run: |
-          for branch in main swift; do
-            if git merge-base --is-ancestor "${GITHUB_SHA}" "origin/${branch}"; then
-              echo "Tag ${GITHUB_REF_NAME} is on ${branch}."
-              exit 0
-            fi
-          done
-          echo "::error::Tag ${GITHUB_REF_NAME} is on neither main nor swift. Merge the release into one of them, then tag it there."
+          if git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "Tag ${GITHUB_REF_NAME} is on main."
+            exit 0
+          fi
+          echo "::error::Tag ${GITHUB_REF_NAME} is not on main. Merge the release into main, then tag it there."
           exit 1
 
       # The engine archive its engine sources name
