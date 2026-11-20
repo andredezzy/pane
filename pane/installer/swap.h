@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "base/functional/callback.h"
 #include "base/process/process.h"
 #include "base/process/process_handle.h"
 #include "base/time/time.h"
@@ -26,8 +27,9 @@ namespace pane::installer {
 // renamed) and started by Pane as it exits, waits for Pane's processes,
 // renderers too, ends what outlived the browser, swaps the staged folder in
 // for the app folder, rolling back on any failure, opens the new Pane for
-// Restart to update, and removes the old app, the installer it came from,
-// and its own copy. It has no window.
+// Restart to update, removes the old app, the installer it came from, and its
+// own copy, and has the new version register Pane with Windows, as a
+// reinstall does. It has no window.
 
 // What the swap came to, which is the helper's exit code too.
 enum class SwapOutcome {
@@ -134,9 +136,22 @@ std::unique_ptr<WorkItemList> SwapIn(const base::FilePath& app,
                                      const base::FilePath& staged,
                                      const base::FilePath& swapping);
 
+// The new version's registration with Windows, once it is swapped in and the
+// old app has gone: chrome.exe's in the app folder (RegisterSwappedApp), its
+// exit code, or nothing where it didn't start or end; the tests', a stand-in.
+using RunRegister =
+    base::OnceCallback<std::optional<int>(const base::FilePath& app)>;
+
 // The helper's whole run for `request`. Blocks until Pane has gone, then
-// for the swap.
-SwapOutcome RunSwap(const SwapRequest& request);
+// for the swap, then for `register_app`, which only the install's own folder
+// runs (files.h's IsInstalledAppFolder): a scenario's copy is never
+// registered with Windows. A registration that fails is noted and undoes
+// nothing: the new version is in place, and may already be running.
+SwapOutcome RunSwap(const SwapRequest& request, RunRegister register_app);
+
+// What the helper registers with: the app's chrome.exe, as a reinstall's
+// repair runs it (chrome_exe.h's RegisterWithWindows), each step in its notes.
+std::optional<int> RegisterSwappedApp(const base::FilePath& app);
 
 // What RunSwap noted as it went, each step and when (a failed swap's mark
 // holds them too).

@@ -18,6 +18,7 @@ import {
 import { swiftTool } from "../lib/tools";
 import {
 	executableOf,
+	installedAppsEntry,
 	launchCopy,
 	updateLeftovers as leftovers,
 	type RestartTimeline,
@@ -46,7 +47,9 @@ import { expect, type Scenario } from "../run";
 // staged in turn, installs. Where the swap runs once Pane has exited
 // (Windows'), a file of the app held open fails it: it rolls back, Pane opens
 // as it was and says so above the pill (Paper 11.12.14, E), and the next
-// exit installs it.
+// exit installs it. There the helper has the new version register Pane with
+// Windows, the install's own folder alone: Installed apps' entry, the user's
+// install's or none, stays as it was through every copy's update.
 //
 // PANE_UPDATE_DMG names a real dmg instead, as scripts/dist.sh builds it: the
 // run's Pane installs it the same way (installRelease below).
@@ -58,6 +61,7 @@ const updateInstall: Scenario = async (context) => {
 	}
 
 	const work = context.tempDir("pane-update-install-");
+	const entry = await installedAppsEntry();
 
 	const standIn = (holds: string, offered: string) =>
 		standInRelease(context.binary, work, holds, offered);
@@ -227,6 +231,8 @@ const updateInstall: Scenario = async (context) => {
 			`left beside the app: ${leftovers(restart.bundle).join(", ")}; the helper: ${swapNotes(restart.app)}`,
 		);
 
+		await expectRegistrationLeft(restart.app, entry);
+
 		// The installed one's file goes; the mismatched one stays the user's.
 		expect(
 			!existsSync(join(restart.downloads, dmgs.good.name)),
@@ -273,6 +279,8 @@ const updateInstall: Scenario = async (context) => {
 			leftovers(quit.bundle).length === 0,
 			`left beside the app: ${leftovers(quit.bundle).join(", ")}; the helper: ${swapNotes(quit.app)}`,
 		);
+
+		await expectRegistrationLeft(quit.app, entry);
 
 		// Where the swap runs once Pane has exited, a file of the app held open
 		// fails it: it rolls back, and the Pane the restart opens is the old
@@ -425,6 +433,8 @@ const updateInstall: Scenario = async (context) => {
 			`left after the install: ${[...leftovers(newer.bundle), ...readdirSync(newer.downloads)].join(", ")}`,
 		);
 
+		await expectRegistrationLeft(again, entry);
+
 		return timing || failed
 			? { restart: timing, failedSwap: failed }
 			: undefined;
@@ -460,6 +470,24 @@ const swapNotes = (app: PaneApp) => {
 
 	return existsSync(file) ? readFileSync(file, "utf8").trim() : "";
 };
+
+// A copy's update leaves Windows' registration as it was: Installed apps'
+// entry, the user's install's or none, the same as before the run, and the
+// helper saying it left it (pane/installer/swap.cc); on the Mac, no entry and
+// no helper.
+async function expectRegistrationLeft(
+	app: PaneApp,
+	before: Awaited<ReturnType<typeof installedAppsEntry>>,
+) {
+	const after = await installedAppsEntry();
+	const notes = swapNotes(app);
+
+	expect(
+		JSON.stringify(after) === JSON.stringify(before) &&
+			(!SWAP_AFTER_EXIT || notes.includes("registration left as it is")),
+		`Installed apps' entry ${JSON.stringify(before)} became ${JSON.stringify(after)}; the helper: ${notes}`,
+	);
+}
 
 const exited = async (pid: number) =>
 	expect(await waitForExit(pid, 30_000), `Pane (${pid}) did not quit`);

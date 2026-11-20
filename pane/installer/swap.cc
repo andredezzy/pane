@@ -11,19 +11,18 @@
 #include <string_view>
 #include <utility>
 
-#include "base/base_paths.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
-#include "base/path_service.h"
 #include "base/process/launch.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/utf_string_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/win/scoped_handle.h"
 #include "chrome/installer/util/work_item.h"
 #include "chrome/installer/util/work_item_list.h"
+#include "pane/installer/chrome_exe.h"
 #include "pane/installer/files.h"
 #include "pane/installer/running_pane.h"
 #include "pane/installer/switches.h"
@@ -78,19 +77,11 @@ bool MaySwap(const base::FilePath& app) {
          (base::GetTempDir(&temp) && IsInFolder(app, temp));
 }
 
-// The folder a launch of Pane starts in: the user's own, as a shortcut's
-// does, never the app folder, which its current folder would hold.
-base::FilePath UserFolder() {
-  base::FilePath home;
-  base::PathService::Get(base::DIR_HOME, &home);
-  return home;
-}
-
 // Opens the Pane in `app`, as Restart to update asks: with the arguments it
 // was opened with, in front where it may take it. The app-starting pointer
 // shows until its window does (Paper 11.12.14).
 void OpenPane(const base::FilePath& app, const SwapRequest& request) {
-  std::vector<std::wstring> argv = {app.Append(L"chrome.exe").value()};
+  std::vector<std::wstring> argv = {ChromeIn(app).value()};
   argv.insert(argv.end(), request.arguments.begin(), request.arguments.end());
   base::LaunchOptions options;
   options.current_directory = UserFolder();
@@ -100,6 +91,29 @@ void OpenPane(const base::FilePath& app, const SwapRequest& request) {
   Note(pane.IsValid()
            ? "opened Pane"
            : "could not open Pane: " + base::NumberToString(::GetLastError()));
+}
+
+// Windows told of the version now in place, as a reinstall tells it: the
+// uninstall entry's version, size, and date, which Installed apps shows,
+// Start's shortcut, Default apps, and the toast activator, rewritten by the
+// new version's chrome.exe (ADR 0127). Only the install's own folder,
+// whose chrome.exe alone registers: a scenario's copy is never one.
+void RegisterNewVersion(const base::FilePath& app, RunRegister register_app) {
+  if (!IsInstalledAppFolder(app)) {
+    Note("not the install's own folder: Windows' registration left as it is");
+    return;
+  }
+  const std::optional<int> code = std::move(register_app).Run(app);
+  if (code == kSwitchDone) {
+    Note("registered");
+    return;
+  }
+  // The new version runs all the same: what didn't register waits for the
+  // next install or update, whose registration rewrites it whole.
+  Note(code ? base::StringPrintf("registering failed: 0x%08x; installed all "
+                                 "the same",
+                                 static_cast<unsigned>(*code))
+            : "registering didn't end; installed all the same");
 }
 
 }  // namespace
@@ -316,7 +330,11 @@ std::unique_ptr<WorkItemList> SwapIn(const base::FilePath& app,
   return nullptr;
 }
 
-SwapOutcome RunSwap(const SwapRequest& request) {
+std::optional<int> RegisterSwappedApp(const base::FilePath& app) {
+  return RegisterWithWindows(app, /*first_install=*/false, Note);
+}
+
+SwapOutcome RunSwap(const SwapRequest& request, RunRegister register_app) {
   // Checked again, whatever made the request.
   if (!MaySwap(request.app)) {
     return SwapOutcome::kRefused;
@@ -395,7 +413,8 @@ SwapOutcome RunSwap(const SwapRequest& request) {
   // else is in it. The old app's files go as the list does, and what is still
   // held then (Windows Defender reading a file a moment, as the installer's
   // runs in the test VM found, 2026-11-15) goes in the tries after; what
-  // outlasts them, the next launch removes.
+  // outlasts them, the next launch removes. Then Windows hears of the new
+  // version, behind the new Pane's window, which waits on none of it.
   swapped.reset();
   const base::FilePath swapping = SwappingFolder(update);
   for (int attempt = 0; base::PathExists(swapping); ++attempt) {
@@ -416,6 +435,7 @@ SwapOutcome RunSwap(const SwapRequest& request) {
   base::DeleteFile(DownloadRecord(update, version));
   base::DeleteFile(NotInstalledMark(update));
   ::RemoveDirectoryW(update.value().c_str());
+  RegisterNewVersion(request.app, std::move(register_app));
   Note("done at " + elapsed());
   return SwapOutcome::kInstalled;
 }

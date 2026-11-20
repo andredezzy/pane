@@ -17,8 +17,11 @@
 #include "base/path_service.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_path_override.h"
 #include "base/test/test_reg_util_win.h"
+#include "base/time/time.h"
 #include "base/win/registry.h"
 #include "base/win/scoped_com_initializer.h"
 #include "base/win/shortcut.h"
@@ -274,6 +277,59 @@ TEST_F(WindowsIntegrationTest, RegistersAndUnregisters) {
   EXPECT_EQ(Read(own + L"\\PreferenceMACs", L"mac"), L"kept");
   EXPECT_EQ(Read(own, L"metricsid"), L"");
   EXPECT_TRUE(base::PathExists(data_.Append(L"profiles.json")));
+}
+
+// After an update's swap the new version registers as a reinstall's repair
+// does (pane/installer/swap.h): Installed apps' entry names its version and
+// its size, and the day, as Chrome's installer writes InstallDate at every
+// update (install_worker.cc's AddUninstallShortcutWorkItems); Start's
+// shortcut is made again, the desktop's the user deleted stays deleted, and
+// their pin is left as it was.
+TEST_F(WindowsIntegrationTest, AnUpdatesRepairNamesTheNewVersion) {
+  ASSERT_EQ(Register(chrome_exe_, data_, /*first_install=*/true),
+            static_cast<DWORD>(ERROR_SUCCESS));
+  const std::wstring uninstall = install_static::GetUninstallRegistryPath();
+  // The user's since: Pane pinned, the desktop's shortcut deleted; and the
+  // entry dated long before, to see the day written again.
+  base::FilePath pins;
+  ASSERT_TRUE(base::PathService::Get(base::DIR_TASKBAR_PINS, &pins));
+  const base::FilePath pin = pins.Append(L"Pane.lnk");
+  base::win::ShortcutProperties pinned;
+  pinned.set_target(chrome_exe_);
+  ASSERT_TRUE(base::win::CreateOrUpdateShortcutLink(
+      pin, pinned, base::win::ShortcutOperation::kCreateAlways));
+  std::string pin_before;
+  ASSERT_TRUE(base::ReadFileToString(pin, &pin_before));
+  ASSERT_TRUE(base::DeleteFile(Shortcut(base::DIR_USER_DESKTOP)));
+  ASSERT_EQ(
+      base::win::RegKey(HKEY_CURRENT_USER, uninstall.c_str(), KEY_SET_VALUE)
+          .WriteValue(L"InstallDate", L"20200101"),
+      ERROR_SUCCESS);
+
+  // The next version swapped in: its own version, and a larger library.
+  ASSERT_TRUE(base::WriteFile(app_.Append(L"pane-version"), "0.21.1"));
+  ASSERT_TRUE(base::WriteFile(app_.Append(L"chrome.dll"),
+                              std::string(256 * 1024, 'x')));
+  ASSERT_EQ(Register(chrome_exe_, data_, /*first_install=*/false),
+            static_cast<DWORD>(ERROR_SUCCESS));
+
+  EXPECT_EQ(Read(uninstall, L"DisplayVersion"), L"0.21.1");
+  DWORD size = 0;
+  EXPECT_EQ(base::win::RegKey(HKEY_CURRENT_USER, uninstall.c_str(), KEY_READ)
+                .ReadValueDW(L"EstimatedSize", &size),
+            ERROR_SUCCESS);
+  EXPECT_EQ(size, static_cast<DWORD>(base::ComputeDirectorySize(app_) / 1024));
+  EXPECT_GE(size, 256u);
+  base::Time::Exploded today;
+  base::Time::Now().LocalExplode(&today);
+  EXPECT_EQ(Read(uninstall, L"InstallDate"),
+            base::ASCIIToWide(base::StringPrintf(
+                "%04d%02d%02d", today.year, today.month, today.day_of_month)));
+  EXPECT_TRUE(base::PathExists(Shortcut(base::DIR_START_MENU)));
+  EXPECT_FALSE(base::PathExists(Shortcut(base::DIR_USER_DESKTOP)));
+  std::string pin_after;
+  ASSERT_TRUE(base::ReadFileToString(pin, &pin_after));
+  EXPECT_EQ(pin_after, pin_before);
 }
 
 // With the box ticked: the data erased, the wipe's way, and Chromium's key

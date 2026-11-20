@@ -430,6 +430,37 @@ export const stagedVersion = bySystem({
 	},
 });
 
+// Installed apps' entry for Pane as Windows lists it, each value by name
+// (HKCU's uninstall key, which only the install's own chrome.exe writes,
+// pane/app/windows_integration_win.cc), or null where there is none; the Mac
+// lists none. After an update's swap the helper has the new version write it
+// again, the install's own folder alone: a scenario's copy leaves it as it
+// was (pane/installer/swap.h).
+const UNINSTALL_ENTRY =
+	"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Pane";
+
+export const installedAppsEntry = bySystem({
+	mac: async (): Promise<Record<string, string> | null> => null,
+	windows: async (): Promise<Record<string, string> | null> => {
+		const listed = await Bun.$`reg query ${UNINSTALL_ENTRY}`.quiet().nothrow();
+
+		if (listed.exitCode !== 0) {
+			return null;
+		}
+
+		return Object.fromEntries(
+			listed
+				.text()
+				.split(/\r?\n/)
+				.flatMap((line) => {
+					const match = /^\s+(\S+)\s+REG_\w+\s*(.*)$/.exec(line);
+
+					return match?.[1] ? [[match[1], (match[2] ?? "").trim()]] : [];
+				}),
+		);
+	},
+});
+
 // How the Pane a swap opened shows itself: the Mac's stand-in writes the
 // version it holds into `reopened` in the data folder and ends; Windows' is
 // the run's own Pane at another version, which answers on the same channel,

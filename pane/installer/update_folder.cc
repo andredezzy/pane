@@ -16,6 +16,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "pane/installer/chrome_exe.h"
 #include "pane/installer/files.h"
 #include "pane/installer/payload.h"
 #include "pane/installer/switches.h"
@@ -165,7 +166,7 @@ UpdateFolderScan ScanUpdateFolder(const base::FilePath& update_folder,
                    folder ? VersionBefore(name, L"") : std::nullopt) {
       // Whole: its pane-version names it, and its chrome.exe is there.
       if (VersionIn(path) == base::Version(*version) &&
-          base::PathExists(path.Append(L"chrome.exe"))) {
+          base::PathExists(ChromeIn(path))) {
         staged.emplace(base::Version(*version), std::pair(*version, path));
       } else {
         scan.leftovers.push_back(path);
@@ -257,7 +258,7 @@ std::optional<base::FilePath> StageUpdate(const base::FilePath& installer,
       Unpack(installer, *payload, partial, /*progress=*/nullptr, cancel);
   if (unpacked.outcome != UnpackResult::Outcome::kDone ||
       VersionIn(partial) != base::Version(version) ||
-      !base::PathExists(partial.Append(L"chrome.exe")) ||
+      !base::PathExists(ChromeIn(partial)) ||
       !base::PathExists(partial.Append(kHelperName))) {
     LOG(ERROR) << "The update didn't unpack whole: " << unpacked.error;
     base::DeletePathRecursively(partial);

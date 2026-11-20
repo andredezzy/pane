@@ -4,20 +4,27 @@
 
 #include <windows.h>
 
+#include <optional>
 #include <string>
+#include <vector>
 
+#include "base/base_paths.h"
 #include "base/command_line.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/functional/bind.h"
 #include "base/path_service.h"
 #include "base/process/process.h"
 #include "base/test/multiprocess_test.h"
+#include "base/test/scoped_path_override.h"
 #include "base/test/test_timeouts.h"
 #include "base/threading/platform_thread.h"
 #include "chrome/installer/util/work_item_list.h"
+#include "pane/installer/files.h"
 #include "pane/installer/running_pane.h"
+#include "pane/installer/switches.h"
 #include "pane/installer/update_folder.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/multiprocess_func_list.h"
@@ -71,10 +78,33 @@ class SwapTest : public testing::Test {
     return request;
   }
 
+  // What chrome.exe's registration found as it ran: the app it was given,
+  // the version there, and whether the update folder, the old app in it, was
+  // still beside it.
+  struct Registration {
+    base::FilePath app;
+    std::string version;
+    bool update_folder_left = false;
+  };
+
+  // A stand-in for chrome.exe's registration that gives `code`, each run
+  // kept in registrations_.
+  RunRegister Registers(std::optional<int> code) {
+    return base::BindOnce(
+        [](std::vector<Registration>* registrations, std::optional<int> code,
+           const base::FilePath& app) -> std::optional<int> {
+          registrations->push_back({app, Contents(app.Append(L"pane-version")),
+                                    base::PathExists(UpdateFolderOf(app))});
+          return code;
+        },
+        &registrations_, code);
+  }
+
   base::ScopedTempDir temp_;
   base::FilePath app_;
   base::FilePath update_;
   base::FilePath staged_;
+  std::vector<Registration> registrations_;
 };
 
 }  // namespace
@@ -127,7 +157,8 @@ TEST_F(SwapTest, MarksAFailureAndCleansUpAfterSuccess) {
     base::File held(app_.Append(L"locales\\en-US.pak"),
                     base::File::FLAG_OPEN | base::File::FLAG_READ);
     ASSERT_TRUE(held.IsValid());
-    EXPECT_EQ(RunSwap(request), SwapOutcome::kNotInstalled);
+    EXPECT_EQ(RunSwap(request, Registers(kSwitchDone)),
+              SwapOutcome::kNotInstalled);
   }
   EXPECT_TRUE(base::PathExists(NotInstalledMark(update_)));
   EXPECT_EQ(Contents(app_.Append(L"chrome.dll")), "old");
@@ -138,10 +169,64 @@ TEST_F(SwapTest, MarksAFailureAndCleansUpAfterSuccess) {
   EXPECT_EQ(scan.kept, "2.0.0");
   EXPECT_TRUE(scan.not_installed);
 
-  EXPECT_EQ(RunSwap(request), SwapOutcome::kInstalled);
+  EXPECT_EQ(RunSwap(request, Registers(kSwitchDone)), SwapOutcome::kInstalled);
   EXPECT_EQ(Contents(app_.Append(L"chrome.dll")), "new");
   EXPECT_FALSE(base::PathExists(download));
   EXPECT_FALSE(base::PathExists(update_));
+  // A scenario's copy in the temporary folder is never registered with
+  // Windows: Installed apps names the install's own folder alone.
+  EXPECT_TRUE(registrations_.empty());
+}
+
+// The install's own folder, %LOCALAPPDATA%\Programs\Pane\Application (a
+// folder of the test's own here): once the new version is swapped in and the
+// old app has gone, its chrome.exe registers Pane with Windows as a
+// reinstall's repair does, so Installed apps names the new version. A swap
+// that failed registers nothing; a registration that fails, or doesn't end,
+// is noted and undoes nothing.
+TEST_F(SwapTest, RegistersTheInstallOnceSwapped) {
+  const base::ScopedPathOverride local(base::DIR_LOCAL_APP_DATA,
+                                       temp_.GetPath().Append(L"Local"));
+  const base::FilePath app = AppFolder();
+  const base::FilePath update = UpdateFolderOf(app);
+  Write(app, "1.0.0", "old");
+  ASSERT_TRUE(IsInstalledAppFolder(app));
+  SwapRequest request;
+  request.app = app;
+  request.staged = StagedFolder(update, "2.0.0");
+  Write(request.staged, "2.0.0", "new");
+
+  {
+    base::File held(app.Append(L"chrome.dll"),
+                    base::File::FLAG_OPEN | base::File::FLAG_READ);
+    ASSERT_TRUE(held.IsValid());
+    EXPECT_EQ(RunSwap(request, Registers(kSwitchDone)),
+              SwapOutcome::kNotInstalled);
+  }
+  EXPECT_TRUE(registrations_.empty());
+
+  EXPECT_EQ(RunSwap(request, Registers(kSwitchDone)), SwapOutcome::kInstalled);
+  ASSERT_EQ(registrations_.size(), 1u);
+  EXPECT_EQ(registrations_[0].app, app);
+  EXPECT_EQ(registrations_[0].version, "2.0.0");
+  EXPECT_FALSE(registrations_[0].update_folder_left);
+  EXPECT_NE(SwapNotes().find("registered\r\n"), std::string::npos);
+
+  request.staged = StagedFolder(update, "3.0.0");
+  Write(request.staged, "3.0.0", "newer");
+  EXPECT_EQ(RunSwap(request, Registers(static_cast<int>(E_ACCESSDENIED))),
+            SwapOutcome::kInstalled);
+  EXPECT_EQ(Contents(app.Append(L"chrome.dll")), "newer");
+  EXPECT_NE(SwapNotes().find("registering failed: 0x80070005"),
+            std::string::npos);
+
+  request.staged = StagedFolder(update, "4.0.0");
+  Write(request.staged, "4.0.0", "newest");
+  EXPECT_EQ(RunSwap(request, Registers(std::nullopt)), SwapOutcome::kInstalled);
+  EXPECT_EQ(Contents(app.Append(L"pane-version")), "4.0.0");
+  EXPECT_NE(SwapNotes().find("registering didn't end"), std::string::npos);
+  EXPECT_EQ(registrations_.size(), 3u);
+  EXPECT_FALSE(base::PathExists(update));
 }
 
 // What Pane hands the helper reads back whole, its arguments for the new
@@ -198,7 +283,8 @@ TEST_F(SwapTest, RefusesAnotherLayout) {
   request.app = base::FilePath(L"C:\\Copies\\Pane\\Application");
   request.staged = base::FilePath(L"C:\\Copies\\Pane\\Update\\2.0.0");
   EXPECT_TRUE(refused(request));
-  EXPECT_EQ(RunSwap(request), SwapOutcome::kRefused);
+  EXPECT_EQ(RunSwap(request, Registers(kSwitchDone)), SwapOutcome::kRefused);
+  EXPECT_TRUE(registrations_.empty());
 }
 
 namespace {

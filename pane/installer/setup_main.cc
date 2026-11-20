@@ -17,6 +17,7 @@
 #include "base/command_line.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
+#include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/logging/logging_settings.h"
 #include "base/path_service.h"
@@ -45,12 +46,15 @@ int WINAPI wWinMain(HINSTANCE instance,
 
   const base::CommandLine& switches = *base::CommandLine::ForCurrentProcess();
   // An update's last step, copied out of its staged folder (swap.h): no
-  // window, and its copy goes as it exits.
+  // window, and its copy goes as it exits. The new version registers Pane with
+  // Windows as a reinstall does, so Installed apps names it.
   if (switches.HasSwitch(pane::installer::kSwapSwitch)) {
     const std::optional<pane::installer::SwapRequest> request =
         pane::installer::SwapRequestFrom(switches);
     const pane::installer::SwapOutcome outcome =
-        request ? pane::installer::RunSwap(*request)
+        request ? pane::installer::RunSwap(
+                      *request,
+                      base::BindOnce(&pane::installer::RegisterSwappedApp))
                 : pane::installer::SwapOutcome::kRefused;
     // A scenario's copy, laid out in the temporary folder and read on its
     // channel, hears what the helper did and when (tests/scenarios/

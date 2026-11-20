@@ -11,7 +11,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/base_paths.h"
 #include "base/command_line.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
@@ -19,7 +18,6 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
-#include "base/path_service.h"
 #include "base/process/launch.h"
 #include "base/process/process.h"
 #include "base/rand_util.h"
@@ -34,6 +32,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/win/scoped_handle.h"
+#include "pane/installer/chrome_exe.h"
 #include "pane/installer/files.h"
 #include "pane/installer/running_pane.h"
 #include "pane/installer/switches.h"
@@ -54,9 +53,8 @@ enum ButtonId {
   kUninstallAndDelete,
 };
 
-// How long registering may take, and how long Pane has to paint its first
-// window before the install says it didn't open (Paper 11.12.6, "past 20 s").
-constexpr base::TimeDelta kRegisterTimeout = base::Seconds(60);
+// How long Pane has to paint its first window before the install says it
+// didn't open (Paper 11.12.6, "past 20 s").
 constexpr DWORD kOpenMilliseconds = 20000;
 // How often "Pane is open" looks again.
 constexpr base::TimeDelta kWatchInterval = base::Milliseconds(250);
@@ -104,56 +102,6 @@ void TwoButtons(Screen& screen,
 
 std::u16string VersionText(const base::Version& version) {
   return base::UTF8ToUTF16(version.IsValid() ? version.GetString() : "");
-}
-
-base::FilePath ChromeIn(const base::FilePath& app) {
-  return app.Append(L"chrome.exe");
-}
-
-// The folder a shortcut's launch starts Pane in: the user's own, never the
-// app folder, which a process's current folder would hold.
-base::FilePath UserFolder() {
-  base::FilePath home;
-  base::PathService::Get(base::DIR_HOME, &home);
-  return home;
-}
-
-// Runs chrome.exe with `switches`, waits for it, and gives its exit code.
-std::optional<int> RunChrome(const base::FilePath& app,
-                             const std::vector<std::string>& switches,
-                             base::TimeDelta timeout,
-                             const base::LaunchOptions& extra = {}) {
-  base::CommandLine command(ChromeIn(app));
-  for (const std::string& value : switches) {
-    const size_t equals = value.find('=');
-    if (equals == std::string::npos) {
-      command.AppendSwitch(value);
-    } else {
-      command.AppendSwitchASCII(value.substr(0, equals),
-                                value.substr(equals + 1));
-    }
-  }
-  base::LaunchOptions options = extra;
-  options.start_hidden = true;
-  options.feedback_cursor_off = true;
-  options.current_directory = UserFolder();
-  Note(
-      base::StrCat({"run ", base::WideToUTF8(command.GetCommandLineString())}));
-  base::Process process = base::LaunchProcess(command, options);
-  if (!process.IsValid()) {
-    Note(base::StringPrintf("could not start chrome.exe: %lu",
-                            ::GetLastError()));
-    return std::nullopt;
-  }
-  int code = -1;
-  if (!process.WaitForExitWithTimeout(timeout, &code)) {
-    Note("chrome.exe did not end in time");
-    process.Terminate(1, false);
-    return std::nullopt;
-  }
-  Note(base::StringPrintf("chrome.exe ended: 0x%08x",
-                          static_cast<unsigned>(code)));
-  return code;
 }
 
 // A folder renamed, as an install renames its own into place.
@@ -580,11 +528,7 @@ void InstallFlow::Copied(UnpackResult result,
 
 void InstallFlow::Register(bool first_install, base::FilePath old_app) {
   const base::FilePath app = AppFolder();
-  const std::optional<int> code = RunChrome(
-      app,
-      {base::StrCat({kRegisterSwitch, "=",
-                     first_install ? kRegisterFirst : kRegisterRepair})},
-      kRegisterTimeout);
+  const std::optional<int> code = RegisterWithWindows(app, first_install, Note);
   if (code != kSwitchDone) {
     // What it registered goes, and the PC is as it was: the earlier folder
     // back in place, or the new one gone with its registrations.
@@ -597,7 +541,7 @@ void InstallFlow::Register(bool first_install, base::FilePath old_app) {
       }
     } else {
       RunChrome(app, {base::StrCat({kUnregisterSwitch, "=", kUnregisterKeep})},
-                kRegisterTimeout);
+                kRegisterTimeout, Note);
       RemoveFolder(app);
       RemoveEmptyFolders();
     }
@@ -1014,7 +958,7 @@ std::optional<int> UninstallFlow::Unregister(const base::FilePath& app) {
        base::StrCat(
            {kProgressSwitch, "=",
             base::NumberToString(reinterpret_cast<uintptr_t>(write))})},
-      base::TimeDelta::Max(), options);
+      base::TimeDelta::Max(), Note, options);
   write_end.Close();
   reader.Stop();
   return code;

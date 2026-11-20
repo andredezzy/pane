@@ -14,7 +14,8 @@ assert(is_win, "Pane's installer is Windows' alone")
 # What the installer decides apart from its window, for its tests; and what
 # Pane's chrome.exe shares with it: the helper's copy for the uninstall, and
 # an update's staging into the folder beside the app (update_folder.h), whose
-# swap the helper makes (swap.h).
+# swap the helper makes (swap.h). The installer and the helper start chrome.exe
+# one way (chrome_exe.h).
 source_set("lib") {
   visibility = [
     ":*",
@@ -22,6 +23,8 @@ source_set("lib") {
   ]
 
   sources = [
+    "chrome_exe.cc",
+    "chrome_exe.h",
     "files.cc",
     "files.h",
     "payload.cc",
