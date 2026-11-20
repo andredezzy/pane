@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <optional>
+#include <string>
 #include <utility>
 
 #include "base/containers/span.h"
@@ -680,6 +682,15 @@ SettingsView::SettingsView(Callbacks callbacks, AppIconImages& images)
   lock_after_ = preset_menu(lock_after_row_, u"Lock after", kLockAfter,
                             &model::AppSettings::lock_after_minutes,
                             kViewIdSettingsLockAfter);
+  // What the data rests on here, with or without a PIN: Windows' alone, a
+  // row with no control, its title read before its words (U5, Paper 11.19).
+  if (const std::optional<std::string> promise =
+          model::HostDataPromise(shows_.chip_guards_pin)) {
+    promise_row_ = security->AddRow(std::make_unique<Row>(
+        base::StrCat({u"On this ", base::UTF8ToUTF16(model::HostDeviceName())}),
+        base::UTF8ToUTF16(*promise)));
+    promise_row_->ExposeTitle();
+  }
   ShowPinRows(false);
 
   Card* updates = contents_->AddGroup(u"Updates");
@@ -760,6 +771,11 @@ void SettingsView::SetShows(const Shows& shows) {
   lock_after_->SetSelected(IndexOf(kLockAfter, settings.lock_after_minutes));
   if (first || shows.has_pin != before.has_pin) {
     ShowPinRows(shows.has_pin);
+  }
+  if (promise_row_ && shows.chip_guards_pin != before.chip_guards_pin) {
+    promise_row_->SetDescription(
+        base::UTF8ToUTF16(*model::HostDataPromise(shows.chip_guards_pin)),
+        /*crossfades=*/false);
   }
 
   if (first || shows.update != before.update) {

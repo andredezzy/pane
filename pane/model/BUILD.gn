@@ -196,13 +196,14 @@ source_set("unit_tests") {
 
   # Windows' own: the lock's answer to each of the chip's codes in Settings,
   # the engine's folder chrome_elf names, os_crypt's key under DPAPI, the
-  # TPM's guard, the preference MACs in the registry, and the release's file
-  # Windows updates from.
+  # promise Settings makes for the data, the TPM's guard, the preference MACs
+  # in the registry, and the release's file Windows updates from.
   if (is_win) {
     sources += [
       "app_lock_win_unittest.cc",
       "engine_folder_win_unittest.cc",
       "engine_secret_win_unittest.cc",
+      "host_platform_win_unittest.cc",
       "pin_guard_win_unittest.cc",
       "preference_macs_win_unittest.cc",
       "updates_win_unittest.cc",

@@ -24,6 +24,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
@@ -67,6 +68,7 @@
 #include "pane/model/address_input.h"
 #include "pane/model/app_settings.h"
 #include "pane/model/model_store.h"
+#include "pane/model/pin_guard.h"
 #include "pane/model/profile.h"
 #include "pane/model/profile_draft.h"
 #include "pane/model/profile_form.h"
@@ -553,6 +555,19 @@ UiApp::UiApp(base::CommandLine launch_toast)
                                     weak_factory_.GetWeakPtr()));
   updater_observation_.Observe(updater_.get());
   settings_update_ = SettingsUpdateOf(*updater_);
+  // Whether a PIN set here would take the PC's security chip, for Settings'
+  // promise (U5): the system's TPM services may make the asking wait.
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
+      base::BindOnce(&model::PinGuard::HasChip),
+      base::BindOnce(
+          [](base::WeakPtr<UiApp> app, bool has_chip) {
+            if (app && app->has_chip_ != has_chip) {
+              app->has_chip_ = has_chip;
+              app->window_->Refresh();
+            }
+          },
+          weak_factory_.GetWeakPtr()));
   // Its first check goes out once the system's proxy settings are read, which
   // the browser's own network context takes (ADR 0040): until then it holds
   // the last launch's.
@@ -2125,6 +2140,11 @@ RootView::Shows UiApp::Shows() {
   shows.can_collapse_all = !model.expanded_profile_ids().empty();
   shows.settings.settings = model.settings();
   shows.settings.has_pin = data_->HasPin();
+  // A PIN set takes the chip where its seal holds the chip's share, which
+  // wrong PINs then never wipe (no attempts count toward a wipe); one to set
+  // would, where the PC has a chip.
+  shows.settings.chip_guards_pin =
+      shows.settings.has_pin ? !data_->AttemptsTowardWipe() : has_chip_;
   shows.settings.update = settings_update_;
   shows.settings.version = version_;
   shows.app_icon_picker =

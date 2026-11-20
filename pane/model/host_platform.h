@@ -3,6 +3,8 @@
 #ifndef PANE_MODEL_HOST_PLATFORM_H_
 #define PANE_MODEL_HOST_PLATFORM_H_
 
+#include <optional>
+#include <string>
 #include <string_view>
 
 #include "pane/model/profile.h"
@@ -19,6 +21,14 @@ Platform HostPlatform();
 // What the profile sheet and Settings call the computer Pane runs on: "Sites
 // see this Mac.", and "PC" on Windows (Paper 11.7).
 std::string_view HostDeviceName();
+
+// What Pane's data rests on here, Settings' last row in Security on Windows
+// (U5, Paper 11.19): there no encrypted volume hides the files, and Windows
+// gives the key's secret to any app of the user's, so it says what a PIN
+// adds, the PC's security chip where `chip_guards_pin`, and what shows
+// anyway. None on the Mac, whose volume and Keychain keep the promise (ADR
+// 0113).
+std::optional<std::string> HostDataPromise(bool chip_guards_pin);
 
 }  // namespace pane::model
 

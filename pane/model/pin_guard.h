@@ -53,6 +53,11 @@ class PinGuard : public base::RefCountedThreadSafe<PinGuard> {
   // Windows (pin_guard_win.cc), none on the Mac (pin_guard_mac.cc).
   static scoped_refptr<PinGuard> ForData(const base::FilePath& data_directory);
 
+  // Whether this computer has a chip to guard a PIN: a TPM 2.0 on Windows,
+  // which a PIN set now takes (Guard); never on the Mac. It may wait on the
+  // system's TPM services, so never on the window's sequence.
+  static bool HasChip();
+
   PinGuard(const PinGuard&) = delete;
   PinGuard& operator=(const PinGuard&) = delete;
 

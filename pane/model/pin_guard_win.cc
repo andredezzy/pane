@@ -58,16 +58,11 @@ bool IsLockout(SECURITY_STATUS status) {
          status == TPM_E_PCP_AUTHENTICATION_IGNORED;
 }
 
-// Whether this computer has a TPM 2.0: the system's TPM Base Services see
-// one, as Chromium's own hardware check asks them.
-bool HasChip() {
-  return base::win::EvaluateWin11HardwareRequirements().tpm;
-}
-
 // Why the chip made or opened nothing when it gave no lockout: no TPM 2.0 on
 // this computer, or the chip refused.
 PinGuard::Refusal NoKey() {
-  return HasChip() ? PinGuard::Refusal::kRefused : PinGuard::Refusal::kNoChip;
+  return PinGuard::HasChip() ? PinGuard::Refusal::kRefused
+                             : PinGuard::Refusal::kNoChip;
 }
 
 // The PIN as the provider takes it: UTF-16 with its terminating null.
@@ -300,6 +295,13 @@ PinGuard::Refusal RefusalAtDecrypt(long status, bool has_chip) {
 scoped_refptr<PinGuard> PinGuard::ForData(
     const base::FilePath& data_directory) {
   return base::MakeRefCounted<TpmGuard>(PrefixFor(data_directory));
+}
+
+// The system's TPM Base Services see a TPM 2.0, as Chromium's own hardware
+// check asks them.
+// static
+bool PinGuard::HasChip() {
+  return base::win::EvaluateWin11HardwareRequirements().tpm;
 }
 
 }  // namespace pane::model

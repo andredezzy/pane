@@ -14,4 +14,9 @@ scoped_refptr<PinGuard> PinGuard::ForData(
   return nullptr;
 }
 
+// static
+bool PinGuard::HasChip() {
+  return false;
+}
+
 }  // namespace pane::model

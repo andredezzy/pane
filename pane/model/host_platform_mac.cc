@@ -12,4 +12,8 @@ std::string_view HostDeviceName() {
   return "Mac";
 }
 
+std::optional<std::string> HostDataPromise(bool chip_guards_pin) {
+  return std::nullopt;
+}
+
 }  // namespace pane::model

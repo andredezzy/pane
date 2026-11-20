@@ -94,6 +94,9 @@ class SettingsView : public views::View, public AppIconImages::Observer {
 
     model::AppSettings settings;
     bool has_pin = false;
+    // The PC's security chip guards the PIN set, or would guard one set now:
+    // Windows' promise names it then (model::HostDataPromise).
+    bool chip_guards_pin = false;
     SettingsUpdate update;
     // Pane's own version.
     std::u16string version;
@@ -144,6 +147,8 @@ class SettingsView : public views::View, public AppIconImages::Observer {
   raw_ptr<MenuButton> cache_budget_ = nullptr;
   raw_ptr<Row> pin_ = nullptr;
   raw_ptr<Row> lock_after_row_ = nullptr;
+  // Windows' promise for the data, last in Security; none on the Mac.
+  raw_ptr<Row> promise_row_ = nullptr;
   raw_ptr<TextButton> set_up_pin_ = nullptr;
   raw_ptr<TextButton> change_pin_ = nullptr;
   raw_ptr<TextButton> remove_pin_ = nullptr;

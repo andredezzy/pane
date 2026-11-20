@@ -548,6 +548,9 @@ class UiApp : public AppData::Client,
   // Pane's own version, and the update row, as Settings shows them.
   const std::u16string version_;
   SettingsUpdate settings_update_;
+  // The PC has a security chip to guard a PIN set now (PinGuard::HasChip),
+  // once the system's TPM services answered: Settings' promise names it.
+  bool has_chip_ = false;
   // Pane's icon in the Dock.
   std::unique_ptr<DockIcon> dock_icon_;
   // The network service's crashes, and when the last came.

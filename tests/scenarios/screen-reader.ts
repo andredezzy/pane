@@ -172,6 +172,13 @@ const READS = bySystem({
 	},
 });
 
+// Settings' last row in Security, Windows' promise for the data (U5, Paper
+// 11.19): its words begin so on Windows; the Mac has no such row.
+const PROMISE = bySystem<string | undefined>({
+	mac: undefined,
+	windows: "Without a PIN, any app you run can open Pane’s data",
+});
+
 // Quit Pane?'s title, each system's word for quitting.
 const QUIT = bySystem({ mac: "Quit Pane?", windows: "Exit Pane?" });
 
@@ -315,6 +322,19 @@ const screenReader: Scenario = async (context) => {
 	await expectRead("Settings' title", READS.heading("Settings", 1));
 	await expectRead("Appearance", READS.heading("Appearance", 2));
 	await expectRead("the Theme picker", READS.picker("Theme", "System"));
+
+	if (PROMISE) {
+		await expectRead(
+			"the promise's row",
+			(element) => nameOf(element) === "On this PC",
+		);
+
+		await expectRead("the promise's words", (element) =>
+			(nameOf(element) ?? "").startsWith(PROMISE),
+		);
+	} else {
+		await expectNoName("the promise, Windows' alone", "On this PC");
+	}
 
 	// The App icon dialog, named, its chosen sky chosen.
 	await app.send("appIconPicker", { open: true });
