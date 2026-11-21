@@ -587,7 +587,9 @@ UiApp::UiApp(base::CommandLine launch_toast)
       base::BindRepeating(&UiApp::OpenHandedURLs, weak_factory_.GetWeakPtr()),
       base::BindRepeating(&UiApp::AskToExit, weak_factory_.GetWeakPtr()),
       base::BindRepeating(&UiApp::NotificationClicked,
-                          weak_factory_.GetWeakPtr()));
+                          weak_factory_.GetWeakPtr()),
+      // The events go before the app (~UiApp).
+      base::BindRepeating(&UiApp::HeldNotificationIds, base::Unretained(this)));
 
   // The channel, in a scenario's run alone (ADR 0115).
   if (std::optional<std::string> directory =
@@ -1464,21 +1466,41 @@ void UiApp::HandNotificationToSite(NotificationClick click) {
     return;
   }
   const std::string profile_id = click.profile_id;
-  contexts_.With(profile_id,
-                 base::BindOnce(
-                     [](base::WeakPtr<UiApp> app, NotificationClick click,
-                        Profile* profile) {
-                       if (!app) {
-                         return;
-                       }
-                       if (profile) {
-                         ForwardNotificationClick(profile, click);
-                       } else if (!app->InteractionAllowed()) {
-                         // A lock came first: it waits for the next opening.
-                         app->held_notifications_.push_back(std::move(click));
-                       }
-                     },
-                     weak_factory_.GetWeakPtr(), std::move(click)));
+  opening_notifications_.emplace(profile_id, click.notification_id);
+  contexts_.With(
+      profile_id,
+      base::BindOnce(
+          [](base::WeakPtr<UiApp> app, NotificationClick click,
+             Profile* profile) {
+            if (!app) {
+              return;
+            }
+            app->opening_notifications_.erase(app->opening_notifications_.find(
+                {click.profile_id, click.notification_id}));
+            if (profile) {
+              ForwardNotificationClick(profile, click);
+            } else if (!app->InteractionAllowed()) {
+              // A lock came first: it waits for the next opening.
+              app->held_notifications_.push_back(std::move(click));
+            }
+          },
+          weak_factory_.GetWeakPtr(), std::move(click)));
+}
+
+std::set<std::string> UiApp::HeldNotificationIds(
+    const std::string& profile_id) const {
+  std::set<std::string> ids;
+  for (const NotificationClick& click : held_notifications_) {
+    if (click.profile_id == profile_id) {
+      ids.insert(click.notification_id);
+    }
+  }
+  for (const auto& [profile, notification_id] : opening_notifications_) {
+    if (profile == profile_id) {
+      ids.insert(notification_id);
+    }
+  }
+  return ids;
 }
 
 // A click on a profile's header: it opens, or collapsing unloads it (its

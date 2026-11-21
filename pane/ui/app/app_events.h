@@ -5,6 +5,8 @@
 
 #include <memory>
 #include <optional>
+#include <set>
+#include <string>
 #include <vector>
 
 #include "base/functional/callback.h"
@@ -63,17 +65,24 @@ bool ClosingTheWindowQuits();
 // the Mac, macOS's center hands its clicks to Chrome's handler in the
 // browser, which hands each to `notification_clicked` the same way (patch
 // 0004, notification_center_mac.h), where it loaded the profile itself.
+// There Chrome's bridge also asks `held_notification_ids` which of a
+// profile's notifications Pane holds a click of, which it answers as shown,
+// so the profile's database keeps their rows as it opens; Windows' bridge
+// answers in a later task, after the click's read, and never asks.
 class AppEvents {
  public:
   using OpenURLs = base::RepeatingCallback<void(std::vector<GURL>)>;
   using NotificationClicked =
       base::RepeatingCallback<void(std::optional<NotificationClick>)>;
+  using HeldNotificationIds = base::RepeatingCallback<std::set<std::string>(
+      const std::string& profile_id)>;
 
   static std::unique_ptr<AppEvents> Listen(
       base::RepeatingClosure reopen,
       OpenURLs open_urls,
       base::RepeatingClosure ask_to_exit,
-      NotificationClicked notification_clicked);
+      NotificationClicked notification_clicked,
+      HeldNotificationIds held_notification_ids);
 
   // Chrome's start has ended (ChromeBrowserMainParts::PostBrowserStart), and
   // gave the process singleton Chrome's own callback, which replaces the one

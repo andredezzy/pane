@@ -16,6 +16,7 @@
 // (commit 9e50b3c). Unset, Chrome's handler goes on.
 
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -32,6 +33,19 @@ extern void (*g_pane_notification_response)(
 // names this data's profiles, so a crash's notifications go before the PIN,
 // and never another copy's. Unset, the bridge closes none.
 extern std::vector<std::string> (*g_pane_notification_profile_ids)();
+
+// The notifications of a profile, by its id, whose clicks Pane holds for its
+// site until the profile has opened and hands them on (UiApp's
+// HeldNotificationIds): the hook patch 0004 defines in Chrome's
+// notification_platform_bridge_mac.cc too, which adds them to what it answers
+// as shown. As a profile opens, its notification database drops each row the
+// answer doesn't list (PlatformNotificationContextImpl's sync), and a click
+// takes its notification out of macOS's center: when both centers' services
+// had let go after a Lock, the answer came in the task that opened the
+// profile, before the click's read, and the site never heard it. Set by the
+// Mac's AppEvents. Unset, the bridge adds none.
+extern std::set<std::string> (*g_pane_held_notification_ids)(
+    const std::string& profile_id);
 
 namespace pane {
 

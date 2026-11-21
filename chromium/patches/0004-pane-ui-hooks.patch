@@ -24,10 +24,10 @@ index aecb3609bf..a2dd257b96 100644
    // Returns true if the browser window can dock a DevTools panel.
    bool CanDockDevtools() const;
 diff --git a/chrome/browser/notifications/mac/notification_platform_bridge_mac.cc b/chrome/browser/notifications/mac/notification_platform_bridge_mac.cc
-index 967672e97b..375eeb7301 100644
+index 967672e97b..16413f291a 100644
 --- a/chrome/browser/notifications/mac/notification_platform_bridge_mac.cc
 +++ b/chrome/browser/notifications/mac/notification_platform_bridge_mac.cc
-@@ -27,6 +27,10 @@
+@@ -27,6 +27,12 @@
  #include "third_party/blink/public/common/notifications/notification_constants.h"
  #include "ui/message_center/public/cpp/notification.h"
  #include "ui/message_center/public/cpp/notification_types.h"
@@ -35,10 +35,12 @@ index 967672e97b..375eeb7301 100644
 +
 +// Pane: see pane/ui/app/notification_center_mac.h.
 +std::vector<std::string> (*g_pane_notification_profile_ids)() = nullptr;
++std::set<std::string> (*g_pane_held_notification_ids)(
++    const std::string& profile_id) = nullptr;
  
  namespace {
  
-@@ -87,6 +91,16 @@ NotificationPlatformBridge::Create() {
+@@ -87,6 +93,16 @@ NotificationPlatformBridge::Create() {
    auto alert_dispatcher = std::make_unique<NotificationDispatcherMojo>(
        std::make_unique<MacNotificationProviderFactory>(
            mac_notifications::NotificationStyle::kAlert));
@@ -55,6 +57,28 @@ index 967672e97b..375eeb7301 100644
    auto create_dispatcher_for_web_app =
        base::BindRepeating([](const webapps::AppId& web_app_id)
                                -> std::unique_ptr<NotificationDispatcherMac> {
+@@ -196,6 +212,21 @@ void NotificationPlatformBridgeMac::GetDisplayed(
+   std::string profile_id = GetProfileId(profile);
+   bool incognito = profile->IsOffTheRecord();
+ 
++  // Pane: a notification whose click Pane holds for this profile's site
++  // counts as shown, so the sync this answer starts keeps the row the
++  // click's read needs, whichever of the two runs first.
++  if (g_pane_held_notification_ids) {
++    callback = base::BindOnce(
++        [](const std::string& profile_id,
++           GetDisplayedNotificationsCallback callback,
++           std::set<std::string> displayed, bool supports_synchronization) {
++          displayed.merge(g_pane_held_notification_ids(profile_id));
++          std::move(callback).Run(std::move(displayed),
++                                  supports_synchronization);
++        },
++        profile_id, std::move(callback));
++  }
++
+   auto get_notifications_callback =
+       CreateGetDisplayedBarrierCallback(2, std::move(callback));
+ 
 diff --git a/chrome/browser/notifications/mac/notification_utils.cc b/chrome/browser/notifications/mac/notification_utils.cc
 index 07c43ac19f..f46cfc20f8 100644
 --- a/chrome/browser/notifications/mac/notification_utils.cc

@@ -9,6 +9,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/command_line.h"
@@ -371,6 +372,12 @@ class UiApp : public AppData::Client,
   // takes it from there (ForwardNotificationClick). Behind the lock, or before
   // the data opens, nothing of the profile loads: it waits (AccessDidOpen).
   void HandNotificationToSite(NotificationClick click);
+  // The notifications of `profile_id` whose clicks its site hasn't heard
+  // yet: held behind the lock, or waiting for the profile to open. On the
+  // Mac Chrome's bridge counts them as shown (AppEvents), so the profile's
+  // notification database keeps the rows their clicks read.
+  std::set<std::string> HeldNotificationIds(
+      const std::string& profile_id) const;
 
   // A tab whose page loads behind the selected one, after `anchor` or last.
   std::string OpenTabBehind(const std::string& profile_id,
@@ -506,6 +513,9 @@ class UiApp : public AppData::Client,
   // The notifications clicked while Pane was locked, or before its data
   // opened, which their sites hear once it opens.
   std::vector<NotificationClick> held_notifications_;
+  // Those whose profile is opening for them, by the profile's id and the
+  // notification's, until the profile hands them on.
+  std::multiset<std::pair<std::string, std::string>> opening_notifications_;
   // When each tab's renderer last died, to tell a crash loop from a crash.
   model::CrashLoop crashes_;
   // The tabs that show the sad tab's place until they reload: a page that

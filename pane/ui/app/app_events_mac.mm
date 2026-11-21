@@ -4,6 +4,8 @@
 
 #import <AppKit/AppKit.h>
 
+#include <set>
+#include <string>
 #include <utility>
 
 #include "chrome/services/mac_notifications/public/mojom/mac_notifications.mojom.h"
@@ -21,22 +23,26 @@ class AppEventsMac;
 AppEventsMac* g_mac_events = nullptr;
 
 void HandToPane(mac_notifications::mojom::NotificationActionInfoPtr info);
+std::set<std::string> HeldByPane(const std::string& profile_id);
 
 class AppEventsMac : public AppEvents {
  public:
   AppEventsMac(base::RepeatingClosure reopen,
                OpenURLs open_urls,
                base::RepeatingClosure ask_to_exit,
-               NotificationClicked notification_clicked)
+               NotificationClicked notification_clicked,
+               HeldNotificationIds held_notification_ids)
       : AppEvents(std::move(reopen),
                   std::move(open_urls),
                   std::move(ask_to_exit),
-                  std::move(notification_clicked)) {
+                  std::move(notification_clicked)),
+        held_notification_ids_(std::move(held_notification_ids)) {
     g_mac_events = this;
     // Set for good: Chrome's own handler, which loads the profile outside
     // Pane's lock, never runs once Pane's UI has started, the clicks after it
     // has gone (a quit) going nowhere.
     g_pane_notification_response = &HandToPane;
+    g_pane_held_notification_ids = &HeldByPane;
     NSNotificationCenter* center = NSNotificationCenter.defaultCenter;
     // The block outlives no AppEventsMac: the observers go with it.
     AppEventsMac* events = this;
@@ -110,6 +116,10 @@ class AppEventsMac : public AppEvents {
     }
   }
 
+  std::set<std::string> HeldNotifications(const std::string& profile_id) {
+    return held_notification_ids_.Run(profile_id);
+  }
+
   ~AppEventsMac() override {
     if (g_mac_events == this) {
       g_mac_events = nullptr;
@@ -122,6 +132,7 @@ class AppEventsMac : public AppEvents {
   }
 
  private:
+  const HeldNotificationIds held_notification_ids_;
   id __strong reopen_observer_;
   id __strong open_urls_observer_;
   id __strong became_active_;
@@ -132,6 +143,11 @@ void HandToPane(mac_notifications::mojom::NotificationActionInfoPtr info) {
   if (g_mac_events && info) {
     g_mac_events->NotificationResponse(std::move(info));
   }
+}
+
+std::set<std::string> HeldByPane(const std::string& profile_id) {
+  return g_mac_events ? g_mac_events->HeldNotifications(profile_id)
+                      : std::set<std::string>();
 }
 
 }  // namespace
@@ -145,10 +161,11 @@ std::unique_ptr<AppEvents> AppEvents::Listen(
     base::RepeatingClosure reopen,
     OpenURLs open_urls,
     base::RepeatingClosure ask_to_exit,
-    NotificationClicked notification_clicked) {
-  return std::make_unique<AppEventsMac>(std::move(reopen), std::move(open_urls),
-                                        std::move(ask_to_exit),
-                                        std::move(notification_clicked));
+    NotificationClicked notification_clicked,
+    HeldNotificationIds held_notification_ids) {
+  return std::make_unique<AppEventsMac>(
+      std::move(reopen), std::move(open_urls), std::move(ask_to_exit),
+      std::move(notification_clicked), std::move(held_notification_ids));
 }
 
 }  // namespace pane
