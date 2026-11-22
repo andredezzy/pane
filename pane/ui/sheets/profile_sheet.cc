@@ -56,6 +56,7 @@
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/paint_info.h"
+#include "ui/views/view_class_properties.h"
 #include "ui/views/view_observer.h"
 #include "ui/views/view_targeter.h"
 #include "ui/views/view_targeter_delegate.h"
@@ -102,7 +103,7 @@ constexpr int kSwitchTrailing = 14;
 constexpr int kNoteSpacing = 2;
 // The swatches: 24 points, rounded 11, 8 apart; the chosen one ringed with
 // the card 2 out and its color 3 out, the rings' radii the swatch's grown by
-// as much (15 and 17), in room 3 over and under the row.
+// as much (13 and 14), in room 3 around the row.
 constexpr int kSwatch = 24;
 constexpr int kSwatchSpacing = 8;
 constexpr int kSwatchRing = 3;
@@ -208,7 +209,8 @@ std::unique_ptr<views::Label> Text(const std::u16string& text,
 
 // Views stacked one under another across the width, `spacing` apart, inside
 // `insets`, each as tall as it needs at that width; a hidden one takes no
-// room.
+// room. A child's left and right margins (views::kMarginsKey) move its edges
+// from the insets', a negative one out into them.
 class Column : public views::View {
   METADATA_HEADER(Column, views::View)
 
@@ -224,7 +226,8 @@ class Column : public views::View {
       if (!child->GetVisible()) {
         continue;
       }
-      height += (first ? 0 : spacing_) + child->GetHeightForWidth(inner);
+      height += (first ? 0 : spacing_) +
+                child->GetHeightForWidth(Across(*child, inner).second);
       first = false;
     }
     return height;
@@ -248,8 +251,9 @@ class Column : public views::View {
         continue;
       }
       y += first ? 0 : spacing_;
-      const int height = child->GetHeightForWidth(inner);
-      child->SetBounds(insets_.left(), y, inner, height);
+      const auto [x, across] = Across(*child, inner);
+      const int height = child->GetHeightForWidth(across);
+      child->SetBounds(x, y, across, height);
       y += height;
       first = false;
     }
@@ -260,6 +264,15 @@ class Column : public views::View {
   }
 
  private:
+  // Where a child starts across, and how wide it is, of `inner` inside the
+  // insets.
+  std::pair<int, int> Across(const views::View& child, int inner) const {
+    const gfx::Insets* margins = child.GetProperty(views::kMarginsKey);
+    const int left = margins ? margins->left() : 0;
+    const int right = margins ? margins->right() : 0;
+    return {insets_.left() + left, std::max(inner - left - right, 0)};
+  }
+
   const gfx::Insets insets_;
   const int spacing_;
 };
@@ -1242,7 +1255,8 @@ class Row : public views::View {
 BEGIN_METADATA(Row)
 END_METADATA
 
-// The swatches across, 8 apart, each in room for its ring.
+// The swatches across, 8 apart, each in room for its ring: the first's room
+// is the 3 the identity's block takes left of the name's edge.
 class SwatchRow : public views::View {
   METADATA_HEADER(SwatchRow, views::View)
 
@@ -1260,7 +1274,7 @@ class SwatchRow : public views::View {
   }
 
   void Layout(PassKey) override {
-    int x = -kSwatchRing;
+    int x = 0;
     for (views::View* swatch : children()) {
       swatch->SetBounds(x, 0, kSwatch + 2 * kSwatchRing,
                         kSwatch + 2 * kSwatchRing);
@@ -1442,15 +1456,22 @@ ProfileSheet::ProfileSheet(Callbacks callbacks)
   contents_ = scroll_->SetContents(
       std::make_unique<Column>(gfx::Insets(kInset), kSectionSpacing));
 
-  // Identity: the name, then the color.
+  // Identity: the name, then the color. The block starts 3 left of the
+  // name's edge, in the body's inset, so the first swatch's ring draws whole
+  // there, as Paper's 05.4 has it: a view paints only inside its bounds and
+  // its parents'. The name and the color's label keep to the edge.
   {
     auto identity = std::make_unique<Column>(gfx::Insets(), kIdentitySpacing);
+    identity->SetProperty(views::kMarginsKey,
+                          gfx::Insets::TLBR(0, -kSwatchRing, 0, 0));
     auto name = SheetField(kPaneColorWindowBackground, u"e.g. Work account",
                            u"Name", kViewIdProfileName);
     name_ = name.get();
     name_block_ = identity->AddChildView(
         Labeled(Text(u"Name", kFormLabel, kPaneColorForeground), 0,
                 kLabelSpacing, std::move(name)));
+    name_block_->SetProperty(views::kMarginsKey,
+                             gfx::Insets::TLBR(0, kSwatchRing, 0, 0));
     auto swatches = std::make_unique<SwatchRow>();
     for (const model::ProfileColor color : kColors) {
       swatches_.push_back(swatches->AddChildView(std::make_unique<Swatch>(
@@ -1462,7 +1483,7 @@ ProfileSheet::ProfileSheet(Callbacks callbacks)
                      base::Unretained(this), color))));
     }
     identity->AddChildView(
-        Labeled(Text(u"Color", kFormLabel, kPaneColorForeground), 0,
+        Labeled(Text(u"Color", kFormLabel, kPaneColorForeground), kSwatchRing,
                 kLabelSpacing, std::move(swatches)));
     contents_->AddChildView(std::move(identity));
   }

@@ -28,7 +28,7 @@ Each radius has its uses (Paper's `--radius-*` tokens carry them too):
 Implementation notes:
 
 - A view paints a squircle (`FillSquircle`, `StrokeSquircleBorder`, or a control's `ControlShape`), never a circular rounded rectangle, at one of the scale's radii (`radius::kXs` to `radius::k2xl`).
-- A ring around a shape is the one exception: it stays even all the way round by taking the shape's radius grown by its offset, through the circle (0.57 of the radius, `kCircularEquivalent`). The profile sheet's selected color swatch, 11, has its rings at 15 and 17.
+- A ring around a shape is the one exception: it takes the shape's radius grown by its offset, as a `box-shadow`'s spread grows it in Paper. The profile sheet's selected color swatch, 11, has its rings at 13 and 14, 2 and 3 out; a focused field's 1-point ring is 12 around its 11.
 - A capsule is round at each end (`ControlShape::Capsule()`), with no flat stretch, as the 28-point profile chip shows.
 - A layer, which draws only circular corners (the page's), takes 0.57 of the radius as a circle (`kCircularEquivalent`): it follows the superellipse within a fifth of a point (0.4 pixels at 2×), with no mask to composite.
 
