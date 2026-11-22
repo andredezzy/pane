@@ -2,6 +2,9 @@
 
 #include "pane/ui/design/palette.h"
 
+#include <windows.h>
+
+#include "skia/ext/skia_utils_win.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/color/color_id.h"
@@ -52,6 +55,22 @@ TEST(PaletteWinTest, AContrastThemesMenusTakeItsTextColorsEdge) {
   AddTheme(plain, /*forced=*/false);
   EXPECT_EQ(plain.GetColor(ui::kColorBubbleBorder), kWindow);
   EXPECT_EQ(plain.GetColor(ui::kColorShadowBase), SK_ColorBLACK);
+}
+
+// Windows keeps one selection, its Highlight, in either appearance, whether
+// the window has the keys or not, where the Mac dims it.
+TEST(PaletteWinTest, TheSelectionStaysTheHighlightWhileTheWindowIsntActive) {
+  const SkColor highlight =
+      skia::COLORREFToSkColor(GetSysColor(COLOR_HIGHLIGHT));
+  for (const auto mode : {ui::ColorProviderKey::ColorMode::kLight,
+                          ui::ColorProviderKey::ColorMode::kDark}) {
+    ui::ColorProvider provider;
+    ui::ColorProviderKey key;
+    key.color_mode = mode;
+    AddPaneColors(&provider, key);
+    EXPECT_EQ(provider.GetColor(kPaneColorTextSelection), highlight);
+    EXPECT_EQ(provider.GetColor(kPaneColorTextSelectionInactive), highlight);
+  }
 }
 
 }  // namespace pane

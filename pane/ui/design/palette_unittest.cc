@@ -221,11 +221,10 @@ TEST(PaletteTest, ResolvesTheSwiftsPairs) {
             light.GetColor(kPaneColorTextSelection));
   EXPECT_EQ(dark.GetColor(ui::kColorTextfieldSelectionBackground),
             dark.GetColor(kPaneColorTextSelection));
-  // The Mac's default Highlight color, opaque, and the selection dimmed
-  // while the window isn't key differs from it.
+  // The system's default Highlight color, opaque. Whether the selection dims
+  // while the window isn't key is each system's own (palette_mac_unittest.cc,
+  // palette_win_unittest.cc).
   EXPECT_EQ(SkColorGetA(light.GetColor(kPaneColorTextSelection)), 0xFFu);
-  EXPECT_NE(light.GetColor(kPaneColorTextSelection),
-            light.GetColor(kPaneColorTextSelectionInactive));
 }
 
 // Pane's ids come after Chrome's, which the engine's own views resolve.

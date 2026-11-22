@@ -182,13 +182,18 @@ source_set("unit_tests") {
     "//ui/views",
   ]
 
-  # The Mac's menu at its anchor, its event and its loop.
+  # The Mac's menu at its anchor, its event and its loop; and its selection,
+  # dimmed while the window isn't key.
   if (is_mac) {
-    sources += [ "anchored_menu_mac_unittest.mm" ]
+    sources += [
+      "anchored_menu_mac_unittest.mm",
+      "palette_mac_unittest.cc",
+    ]
     frameworks = [ "AppKit.framework" ]
   }
 
-  # A contrast theme's colors, which Windows alone brings.
+  # A contrast theme's colors, which Windows alone brings, and its one
+  # selection.
   if (is_win) {
     sources += [ "palette_win_unittest.cc" ]
   }
