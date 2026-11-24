@@ -78,9 +78,9 @@ export const trayIconsOf = bySystem({
 });
 
 // An element as a screen reader reaches it: on the Mac its AX role and
-// subrole, title, description, and value; on Windows UI Automation's control
-// type, localized type, name, full description, and value (Value's, else
-// RangeValue's), with the states Narrator says (uia.ts).
+// subrole, title, description, value, and orientation; on Windows UI
+// Automation's control type, localized type, name, full description, and
+// value (Value's, else RangeValue's), with the states Narrator says (uia.ts).
 export type AccessibleElement = {
 	depth: number;
 	role: string;
@@ -88,6 +88,8 @@ export type AccessibleElement = {
 	title: string;
 	description: string;
 	value: string;
+	// The Mac's AXOrientation ("AXVerticalOrientation"), empty where none.
+	orientation?: string;
 } & Partial<
 	Pick<
 		UiaElement,

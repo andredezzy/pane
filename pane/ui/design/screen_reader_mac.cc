@@ -5,7 +5,8 @@
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/views/accessibility/view_accessibility.h"
 
-// The Mac's: what VoiceOver has read since ADR 0071, unchanged.
+// The Mac's: what VoiceOver has read since ADR 0071, the edge now read as
+// vertical.
 
 namespace pane::screen_reader {
 
@@ -70,6 +71,7 @@ void SetPinCount(views::ViewAccessibility& field,
 
 void SetSplitter(views::ViewAccessibility& edge) {
   edge.SetRole(ax::mojom::Role::kSplitter);
+  edge.SetIsVertical(true);
 }
 
 }  // namespace pane::screen_reader

@@ -1,7 +1,8 @@
 // Prints, as JSON, what a screen reader reaches of an app's windows: each
 // element of their accessibility trees, as VoiceOver walks them (AXChildren),
-// with its role, subrole, title, description, and value. It reads only; the
-// app needs no front, but a locked screen hides every window from it.
+// with its role, subrole, title, description, value, and orientation. It
+// reads only; the app needs no front, but a locked screen hides every window
+// from it.
 // Usage: ax-tree <pid>
 import ApplicationServices
 import Foundation
@@ -33,6 +34,7 @@ func walk(_ element: AXUIElement, depth: Int) {
 		"title": text(element, kAXTitleAttribute),
 		"description": text(element, kAXDescriptionAttribute),
 		"value": text(element, kAXValueAttribute),
+		"orientation": text(element, kAXOrientationAttribute),
 	])
 	guard depth < 40, let children = attribute(element, kAXChildrenAttribute) as? [AXUIElement] else { return }
 	for child in children {

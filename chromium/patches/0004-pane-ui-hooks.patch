@@ -146,6 +146,45 @@ index b0d95981d6..dc4cbbc6eb 100644
    // Windowing system takes ownership.
    new ExternalProtocolDialog(web_contents, url, program_name, initiating_origin,
                               std::move(initiator_document));
+diff --git a/ui/accessibility/platform/ax_platform_node_cocoa.mm b/ui/accessibility/platform/ax_platform_node_cocoa.mm
+index 8814045af9..4b6795ff04 100644
+--- a/ui/accessibility/platform/ax_platform_node_cocoa.mm
++++ b/ui/accessibility/platform/ax_platform_node_cocoa.mm
+@@ -1863,6 +1863,13 @@ const ui::CocoaActionList& GetCocoaActionListForTesting() {
+     [axAttributes addObject:CFToNSPtrCast(kAXKeyShortcutsAttribute)];
+   }
+ 
++  // Pane: a view's orientation, as BrowserAccessibilityCocoa gives web
++  // content's; VoiceOver read a vertical splitter, given none, as horizontal.
++  if (_node->HasState(ax::mojom::State::kVertical) ||
++      _node->HasState(ax::mojom::State::kHorizontal)) {
++    [axAttributes addObject:NSAccessibilityOrientationAttribute];
++  }
++
+   // TitleUIElement
+   if ([self titleUIElement]) {
+     [axAttributes addObject:NSAccessibilityTitleUIElementAttribute];
+@@ -2317,6 +2324,20 @@ const ui::CocoaActionList& GetCocoaActionListForTesting() {
+   return @(doubleValue);
+ }
+ 
++// Pane: see internalAccessibilityAttributeNames.
++- (NSString*)AXOrientation {
++  if (![self instanceActive]) {
++    return nil;
++  }
++  if (_node->HasState(ax::mojom::State::kVertical)) {
++    return NSAccessibilityVerticalOrientationValue;
++  }
++  if (_node->HasState(ax::mojom::State::kHorizontal)) {
++    return NSAccessibilityHorizontalOrientationValue;
++  }
++  return nil;
++}
++
+ - (id)AXOwns {
+   if (![self instanceActive])
+     return nil;
 diff --git a/ui/views/controls/menu/menu_scroll_view_container.cc b/ui/views/controls/menu/menu_scroll_view_container.cc
 index 618177724d..068cc42651 100644
 --- a/ui/views/controls/menu/menu_scroll_view_container.cc

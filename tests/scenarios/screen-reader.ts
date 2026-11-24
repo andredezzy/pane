@@ -39,13 +39,14 @@ const tabsOf = (count: number) => `${count} ${count === 1 ? "tab" : "tabs"}`;
 
 // What each system's screen reader is given of Pane's views (ADR 0071):
 // VoiceOver's accessibility on the Mac, the AX roles it has read since ADR
-// 0071; UI Automation on Windows, Narrator's, the roles and states it reads
-// right (pane/ui/design/screen_reader.h): the sidebar a tree, a profile's
-// row named with its tabs, a picker a combo box valued at its option, a
-// choice a radio button at its place, the Settings button a toggle, a
-// heading at its level, the PIN's count the PIN field's description, and the sidebar's edge a
-// slider. Neither reads a state the other's tree lacks:
-// the Mac's tool reads no selection, which VoiceOver takes from AXSelected.
+// 0071, the sidebar's edge a vertical splitter; UI Automation on Windows,
+// Narrator's, the roles and states it reads right
+// (pane/ui/design/screen_reader.h): the sidebar a tree, a profile's row named
+// with its tabs, a picker a combo box valued at its option, a choice a radio
+// button at its place, the Settings button a toggle, a heading at its level,
+// the PIN's count the PIN field's description, and the sidebar's edge a
+// slider. Neither reads a state the other's tree lacks: the Mac's tool reads
+// no selection, which VoiceOver takes from AXSelected.
 const READS = bySystem({
 	mac: {
 		row:
@@ -63,6 +64,7 @@ const READS = bySystem({
 			(width: number): Read =>
 			(element) =>
 				element.role === "AXSplitter" &&
+				element.orientation === "AXVerticalOrientation" &&
 				nameOf(element) === "Sidebar width" &&
 				element.value === String(width),
 		settings:

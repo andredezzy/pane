@@ -1,10 +1,10 @@
 # Copyright 2026 Pane. Licensed under GPL-3.0-only.
 
-# The design's primitives, one source each, as the Swift app's Theme and
-# Controls had them: the palette and the Theme, the squircle, motion, text,
-# Lucide's icons, and the controls' looks. A target of its own so their tests
-# run in pane_unittests, apart from the engine; it takes nothing of //content's
-# or //chrome's but Chrome's color ids' end, after which Pane's start.
+# The design's primitives, one source each (ADR 0070): the palette and the
+# Theme, the squircle, motion, text, Lucide's icons, and the controls' looks.
+# A target of its own so their tests run in pane_unittests, apart from the
+# engine; it takes nothing of //content's or //chrome's but Chrome's color
+# ids' end, after which Pane's start.
 
 source_set("design") {
   visibility = [
@@ -182,19 +182,23 @@ source_set("unit_tests") {
     "//ui/views",
   ]
 
-  # The Mac's menu at its anchor, its event and its loop; and its selection,
-  # dimmed while the window isn't key.
+  # The Mac's menu at its anchor, its event and its loop; its selection,
+  # dimmed while the window isn't key; and the edge VoiceOver reads.
   if (is_mac) {
     sources += [
       "anchored_menu_mac_unittest.mm",
       "palette_mac_unittest.cc",
+      "screen_reader_mac_unittest.cc",
     ]
     frameworks = [ "AppKit.framework" ]
   }
 
   # A contrast theme's colors, which Windows alone brings, and its one
-  # selection.
+  # selection; and the edge Narrator reads.
   if (is_win) {
-    sources += [ "palette_win_unittest.cc" ]
+    sources += [
+      "palette_win_unittest.cc",
+      "screen_reader_win_unittest.cc",
+    ]
   }
 }
