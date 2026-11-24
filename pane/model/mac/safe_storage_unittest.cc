@@ -4,6 +4,7 @@
 
 #include <Security/Security.h>
 
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -12,6 +13,7 @@
 #include "base/base64.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
+#include "base/strings/sys_string_conversions.h"
 #include "pane/model/mac/proxy_password_vault.h"
 #include "pane/model/mac/test_keychain.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -25,6 +27,22 @@ namespace {
 
 std::vector<uint8_t> Bytes(std::string_view text) {
   return base::ToVector(base::as_byte_span(text));
+}
+
+// Security's own name for a key or a constant.
+std::string Sec(CFStringRef constant) {
+  return base::SysCFStringRefToUTF8(constant);
+}
+
+// A call on the generic password `service` and `account`, its query holding
+// them and `more`.
+TestKeychain::Call Call(std::string name,
+                        std::string_view service,
+                        std::string_view account,
+                        std::map<std::string, std::string> more = {}) {
+  more[Sec(kSecAttrService)] = service;
+  more[Sec(kSecAttrAccount)] = account;
+  return {std::move(name), std::move(more)};
 }
 
 // Found where none may be made: at launch, and once a key is sealed, which a
@@ -131,6 +149,64 @@ TEST(SafeStorageTest, DeletesWithoutAPrompt) {
   ASSERT_EQ(SecKeychainGetUserInteractionAllowed(&allowed), errSecSuccess);
 #pragma clang diagnostic pop
   EXPECT_TRUE(allowed);
+}
+
+// Each call SafeStorage makes of the Keychain, with its whole query: what the
+// login Keychain reads and the tests' Keychain doesn't (the item's class,
+// what to return, the context that keeps a prompt off) is held here.
+TEST(SafeStorageTest, AsksWholeQueries) {
+  TestKeychain keychain;
+  const SafeStorage storage = keychain.safe_storage();
+  keychain.SetItem("@pane/veil Safe Storage", "@pane/veil", "electron");
+  keychain.SetEngineSecret("made");
+
+  EXPECT_TRUE(storage.HasEngineKey());
+  EXPECT_EQ(storage.AdoptKey("@pane/veil Safe Storage", "@pane/veil"),
+            errSecSuccess);
+  EXPECT_EQ(storage.DeleteKey("@pane/veil Safe Storage", "@pane/veil"),
+            errSecSuccess);
+  EXPECT_FALSE(storage.Find("Pane Proxy Passwords", "/data").has_value());
+  EXPECT_EQ(storage.DataSecret(/*makes_one=*/false), Bytes("electron"));
+  EXPECT_EQ(storage.DataSecret(/*makes_one=*/true), Bytes("electron"));
+  EXPECT_EQ(storage.EngineSecret().key, Bytes("electron"));
+
+  const std::map<std::string, std::string> generic = {
+      {Sec(kSecClass), Sec(kSecClassGenericPassword)}};
+  auto with = [&](std::string key, std::string value) {
+    std::map<std::string, std::string> query = generic;
+    query[std::move(key)] = std::move(value);
+    return query;
+  };
+  EXPECT_EQ(keychain.calls(),
+            (std::vector<TestKeychain::Call>{
+                Call("ItemCopyMatching", "Pane Safe Storage", "Pane",
+                     with(Sec(kSecReturnAttributes), "true")),
+                Call("ItemCopyMatching", "@pane/veil Safe Storage",
+                     "@pane/veil", with(Sec(kSecReturnData), "true")),
+                Call("ItemDelete", "Pane Safe Storage", "Pane", generic),
+                Call("ItemAdd", "Pane Safe Storage", "Pane",
+                     with(Sec(kSecValueData), "electron")),
+                Call("ItemDelete", "@pane/veil Safe Storage", "@pane/veil",
+                     with(Sec(kSecUseAuthenticationContext),
+                          "LAContext, never asks")),
+                Call("FindGenericPassword", "Pane Proxy Passwords", "/data"),
+                Call("FindGenericPassword", "Pane Safe Storage", "Pane"),
+                Call("FindGenericPassword", "Pane Safe Storage", "Pane"),
+                Call("FindGenericPassword", "Pane Safe Storage", "Pane"),
+            }));
+
+  // Made where there is none, as Chromium makes it.
+  TestKeychain empty;
+  const std::optional<std::vector<uint8_t>> made =
+      empty.safe_storage().DataSecret(/*makes_one=*/true);
+  ASSERT_TRUE(made);
+  EXPECT_EQ(
+      empty.calls(),
+      (std::vector<TestKeychain::Call>{
+          Call("FindGenericPassword", "Pane Safe Storage", "Pane"),
+          Call("AddGenericPassword", "Pane Safe Storage", "Pane",
+               {{Sec(kSecValueData), std::string(made->begin(), made->end())}}),
+      }));
 }
 
 // The mock Keychain gives every scenario the secret its data is sealed under

@@ -167,6 +167,7 @@ source_set("unit_tests") {
   frameworks = [
     "CoreFoundation.framework",
     "Foundation.framework",
+    "LocalAuthentication.framework",
     "Security.framework",
   ]
 }

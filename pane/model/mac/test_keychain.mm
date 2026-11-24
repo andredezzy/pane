@@ -2,6 +2,7 @@
 
 #include "pane/model/mac/test_keychain.h"
 
+#import <LocalAuthentication/LocalAuthentication.h>
 #import <Security/Security.h>
 
 #include <map>
@@ -9,6 +10,7 @@
 #include <vector>
 
 #include "base/apple/foundation_util.h"
+#include "base/apple/scoped_cftyperef.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/memory/raw_ptr.h"
@@ -21,6 +23,55 @@
 #include "crypto/apple/keychain_v2.h"
 
 namespace pane::model {
+
+namespace {
+
+std::string SecName(CFStringRef constant) {
+  return base::SysCFStringRefToUTF8(constant);
+}
+
+std::string ValueText(CFTypeRef value) {
+  if (CFStringRef text = base::apple::CFCast<CFStringRef>(value)) {
+    return base::SysCFStringRefToUTF8(text);
+  }
+  if (CFBooleanRef boolean = base::apple::CFCast<CFBooleanRef>(value)) {
+    return CFBooleanGetValue(boolean) ? "true" : "false";
+  }
+  if (CFDataRef data = base::apple::CFCast<CFDataRef>(value)) {
+    return std::string(base::as_string_view(base::apple::CFDataToSpan(data)));
+  }
+  if (LAContext* context =
+          base::apple::ObjCCast<LAContext>((__bridge id)value)) {
+    return context.interactionNotAllowed ? "LAContext, never asks"
+                                         : "LAContext, may ask";
+  }
+  return SecName(base::apple::ScopedCFTypeRef<CFStringRef>(
+                     CFCopyTypeIDDescription(CFGetTypeID(value)))
+                     .get());
+}
+
+TestKeychain::Call CallOf(std::string name, CFDictionaryRef query) {
+  TestKeychain::Call call(std::move(name), {});
+  CFDictionaryApplyFunction(
+      query,
+      [](const void* key, const void* value, void* to) {
+        static_cast<TestKeychain::Call*>(to)
+            ->second[ValueText(static_cast<CFTypeRef>(key))] =
+            ValueText(static_cast<CFTypeRef>(value));
+      },
+      &call);
+  return call;
+}
+
+TestKeychain::Call PasswordCall(std::string name,
+                                std::string_view service,
+                                std::string_view account) {
+  return {std::move(name),
+          {{SecName(kSecAttrService), std::string(service)},
+           {SecName(kSecAttrAccount), std::string(account)}}};
+}
+
+}  // namespace
 
 class TestKeychain::Fake : public crypto::apple::KeychainV2 {
  public:
@@ -66,9 +117,15 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
     gate_ = gate;
   }
 
+  std::vector<Call> calls() const {
+    base::AutoLock lock(lock_);
+    return calls_;
+  }
+
   // KeychainV2:
   OSStatus ItemAdd(CFDictionaryRef attributes, CFTypeRef* result) override {
     base::AutoLock lock(lock_);
+    calls_.push_back(CallOf("ItemAdd", attributes));
     if (failure_ != errSecSuccess) {
       return failure_;
     }
@@ -88,6 +145,7 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
   OSStatus ItemCopyMatching(CFDictionaryRef query, CFTypeRef* result) override {
     WaitForTheGate();
     base::AutoLock lock(lock_);
+    calls_.push_back(CallOf("ItemCopyMatching", query));
     if (failure_ != errSecSuccess) {
       return failure_;
     }
@@ -111,6 +169,7 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
 
   OSStatus ItemDelete(CFDictionaryRef query) override {
     base::AutoLock lock(lock_);
+    calls_.push_back(CallOf("ItemDelete", query));
     // Whether the login Keychain could have asked: Keychain Services' own
     // switch, which every process has (SecKeychainGetUserInteractionAllowed).
 #pragma clang diagnostic push
@@ -128,6 +187,8 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
 
   OSStatus ItemUpdate(CFDictionaryRef query,
                       CFDictionaryRef keychain_data) override {
+    base::AutoLock lock(lock_);
+    calls_.push_back(CallOf("ItemUpdate", query));
     return errSecUnimplemented;
   }
 
@@ -135,6 +196,10 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
                               std::string_view account_name,
                               base::span<const uint8_t> password) override {
     base::AutoLock lock(lock_);
+    calls_.push_back(
+        PasswordCall("AddGenericPassword", service_name, account_name));
+    calls_.back().second[SecName(kSecValueData)] =
+        std::string(base::as_string_view(password));
     if (failure_ != errSecSuccess) {
       return failure_;
     }
@@ -148,6 +213,8 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
       std::string_view account_name) override {
     WaitForTheGate();
     base::AutoLock lock(lock_);
+    calls_.push_back(
+        PasswordCall("FindGenericPassword", service_name, account_name));
     if (failure_ != errSecSuccess) {
       return base::unexpected(failure_);
     }
@@ -195,6 +262,7 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
   int reads_ GUARDED_BY(lock_) = 0;
   std::optional<bool> prompt_allowed_at_delete_ GUARDED_BY(lock_);
   raw_ptr<base::WaitableEvent> gate_ GUARDED_BY(lock_) = nullptr;
+  std::vector<Call> calls_ GUARDED_BY(lock_);
 };
 
 TestKeychain::TestKeychain() : fake_(std::make_unique<Fake>()) {}
@@ -236,6 +304,10 @@ void TestKeychain::HoldReadsUntil(base::WaitableEvent* gate) {
 
 int TestKeychain::reads() const {
   return fake_->reads();
+}
+
+std::vector<TestKeychain::Call> TestKeychain::calls() const {
+  return fake_->calls();
 }
 
 std::optional<bool> TestKeychain::prompt_allowed_at_delete() const {

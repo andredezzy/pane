@@ -5,10 +5,13 @@
 
 #include <MacTypes.h>
 
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "pane/model/mac/safe_storage.h"
 
@@ -46,6 +49,17 @@ class TestKeychain {
 
   // How many times an item's secret was read.
   int reads() const;
+
+  // A call the Keychain was asked, whole: its name, and each key of its query
+  // with its value as text, both by Security's own names (kSecClass is
+  // "class"): a string as it is, a boolean "true" or "false", data as its
+  // bytes, and an LAContext as whether it never asks the user. The generic
+  // password's own calls, which take no query, name their service, account,
+  // and password the same way.
+  using Call = std::pair<std::string, std::map<std::string, std::string>>;
+
+  // Every call it was asked, in order.
+  std::vector<Call> calls() const;
 
   // Whether Keychain Services could have shown a prompt as the last delete
   // ran (SecKeychainGetUserInteractionAllowed); none before a delete.
