@@ -43,7 +43,7 @@ ui::ColorProviderKey KeyFor(ui::ColorProviderKey::ColorMode mode) {
 
 }  // namespace
 
-// Each color resolves to the Swift's pair: its light color under a light
+// Each color resolves to its pair on Paper 02.1: its light color under a light
 // appearance, its dark one under a dark one, the ones made from another (a
 // press, a hover) from that one's color in the same appearance, and scrims
 // black in both.

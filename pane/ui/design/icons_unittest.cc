@@ -50,8 +50,7 @@ std::vector<SkPoint> PointsOf(const SkPath& path) {
 
 }  // namespace
 
-// Every icon's SVG, as the Swift app's, parses, and stays on Lucide's
-// 24-unit grid.
+// Every icon's SVG parses, and stays on Lucide's 24-unit grid.
 TEST(IconsTest, EveryIconParsesOnTheGrid) {
   for (Icon icon : kIcons) {
     SCOPED_TRACE(static_cast<int>(icon));

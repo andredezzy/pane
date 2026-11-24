@@ -113,10 +113,13 @@ void SetPinCount(views::ViewAccessibility& field,
                  views::ViewAccessibility& dots,
                  const std::u16string& count);
 
-// The sidebar's edge, valued at the width (ADR 0071): a splitter on the Mac;
-// a slider on Windows, since Narrator reads no thumb's value, and UI
-// Automation makes a focusable splitter a thumb ("Sidebar width, slider at
-// 260").
+// The sidebar's edge, valued at the width (ADR 0071): on the Mac a vertical
+// splitter, the bar between the sidebar and the page, where VoiceOver said
+// "horizontal" of one with no orientation (Chromium's Mac node for a view
+// gives its orientation by patch 0004); a slider on Windows, moving
+// sideways, as a slider is by default, since Narrator reads no thumb's
+// value, and UI Automation makes a focusable splitter a thumb ("Sidebar
+// width, slider at 260").
 void SetSplitter(views::ViewAccessibility& edge);
 
 }  // namespace pane::screen_reader

@@ -122,8 +122,8 @@ std::optional<size_t> IndexOf(base::span<const Preset> presets,
 constexpr std::array<model::Theme, 3> kThemes = {
     model::Theme::kSystem, model::Theme::kLight, model::Theme::kDark};
 
-// A card's border, drawn over its rows as SwiftUI's overlay draws it, so a
-// hairline's ends meet it.
+// A card's border, drawn over its rows, so a hairline's ends meet it (Paper
+// 06.1).
 class CardBorder : public views::View {
   METADATA_HEADER(CardBorder, views::View)
 
@@ -192,8 +192,8 @@ class SettingsView::Row : public views::View {
     return added;
   }
 
-  // A status that changes in place crossfades (the update row's); a row the
-  // Swift drew anew (the PIN's, once one is set) changes at once.
+  // A status that changes in place crossfades (the update row's); a row that
+  // changes what it shows (the PIN's, once one is set) changes at once.
   void SetDescription(const std::u16string& description, bool crossfades) {
     if (description_->GetText() == description) {
       return;
@@ -416,7 +416,7 @@ class SettingsView::Contents : public views::View {
     views::Label* label =
         AddChildView(MakeLabel(title, kGroupLabel, kPaneColorMutedForeground));
     label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-    // Each section's label heads it, as the Swift's Form's sections were.
+    // Each section's label heads it (ADR 0071).
     screen_reader::SetHeading(label->GetViewAccessibility(), 2);
     ExposeToScreenReaders(*label);
     Card* card = AddChildView(std::make_unique<Card>());
@@ -563,7 +563,7 @@ SettingsView::SettingsView(Callbacks callbacks, AppIconImages& images)
   GetViewAccessibility().SetName(u"Settings");
 
   // The panel's corners clip what scrolls, the overlay scroll bar too, as
-  // the Swift's panel clipped its own: as the page's are (ADR 0057).
+  // the page's are (ADR 0057).
   SetPaintToLayer();
   layer()->SetFillsBoundsOpaquely(false);
   layer()->SetRoundedCornerRadius(gfx::RoundedCornersF(kPanelLayerRadius));
@@ -573,7 +573,7 @@ SettingsView::SettingsView(Callbacks callbacks, AppIconImages& images)
   scroll_view_->SetHorizontalScrollBarMode(
       views::ScrollView::ScrollBarMode::kDisabled);
   // The panel's card shows through: nothing here fills past its corners,
-  // and nothing marks an edge the content runs past, as the Swift's didn't.
+  // and nothing marks an edge the content runs past.
   scroll_view_->SetBackgroundColor(std::nullopt);
   scroll_view_->SetDrawOverflowIndicator(false);
   scroll_view_->SetUseContentsPreferredSize(true);

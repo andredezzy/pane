@@ -30,7 +30,7 @@ class DataLock;
 
 // What the vault asks of the disk image tools: DataVolume's attach, unlock,
 // mount, and detach, which run hdiutil and diskutil, and mount through Disk
-// Arbitration. A seam the tests fake, as the Swift's scenarios did; what the
+// Arbitration. A seam the tests fake; what the
 // volume does to its folders runs as it is. Called on the volume's sequence,
 // at launch on a thread of its own, and at exit on the main thread, so a fake
 // is thread-safe.

@@ -18,11 +18,11 @@ namespace pane {
 // channel runs, hands each panel Chrome asks for to the platform's stock
 // dialog behind a listener of its own, so the real panel shows on the
 // window as it does for the user, and the channel can answer it beside it.
-// The panels run out of process on macOS 27 and take no programmatic choice
-// (the Swift's answerPanel did the same).
+// The panels run out of process on macOS 27 and take no programmatic
+// choice.
 void WatchFilePanels();
 
-// The panel showing, as the Swift's snapshot read it: { kind "fileChooser",
+// The panel showing, as the channel's snapshot gives it: { kind "fileChooser",
 // panel "open" or "save", message }; none without one.
 base::Value FilePanelShown();
 

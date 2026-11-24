@@ -65,7 +65,7 @@ base::ListValue EngineProfiles() {
   return names;
 }
 
-// The window's controls, as the Swift app's snapshot gave them: x, y, width,
+// The window's controls, as the channel gives them (ADR 0018): x, y, width,
 // height from the window's top left.
 base::ListValue ControlFrames(views::Widget* widget) {
   base::ListValue frames;
@@ -82,7 +82,7 @@ base::ListValue ControlFrames(views::Widget* widget) {
   return frames;
 }
 
-// The window, as the Swift app's snapshot gave it: its title, whether it
+// The window, as the channel gives it (ADR 0018): its title, whether it
 // shows, has the keys, and fills the screen, its frame ("{{x, y}, {w, h}}",
 // from the screen's top left), and its controls' frames. A closed window
 // shows nothing. Its frame is what it shows: the whole window on the Mac;
@@ -135,7 +135,7 @@ std::string_view ProxyStatusName(model::BrowserModel::ProxyStatus status) {
 }
 
 // The icon draws something at the toolbar's 16 points: a pixel at least 30%
-// opaque, as the Swift app's snapshot tells (hasVisiblePixels).
+// opaque (the snapshot's hasVisiblePixels).
 bool HasVisiblePixels(const gfx::Image& icon) {
   constexpr int kSize = 16;
   if (icon.IsEmpty()) {
@@ -174,7 +174,7 @@ std::string_view DownloadStateName(
   }
 }
 
-// The toolbar as it shows (the Swift's read it through accessibility): its
+// The toolbar as it shows: its
 // controls, whether each takes presses and what it reads as, and whether the
 // address shows the page's domain and title over its text.
 base::DictValue ToolbarState(ToolbarView& toolbar) {
@@ -193,8 +193,8 @@ base::DictValue ToolbarState(ToolbarView& toolbar) {
       .Set("addressLabel", toolbar.address_field()->label_shown());
 }
 
-// The update as the pill, Settings, and the Lock show it, in the Swift app's
-// snapshot's shape.
+// The update as the pill, Settings, and the Lock show it, in the channel's
+// shape (ADR 0018).
 base::DictValue UpdateState(const Updater& updater) {
   const std::optional<model::AvailableUpdate>& available = updater.available();
   const std::optional<double> progress = updater.download_progress();
@@ -213,7 +213,7 @@ base::DictValue UpdateState(const Updater& updater) {
       .Set("checked", updater.checked());
 }
 
-// An action's popup as the channel reads it (the Swift's): its extension,
+// An action's popup as the channel reads it: its extension,
 // whether its page is up, and the page's size.
 base::Value ExtensionPopupState(const ActionPopup* popup) {
   if (!popup) {
@@ -228,7 +228,7 @@ base::Value ExtensionPopupState(const ActionPopup* popup) {
                          .Set("above", popup->above()));
 }
 
-// A prompt asking, as the Swift's channel answered a sheet: its kind, its
+// A prompt asking, as the channel answers for one: its kind, its
 // title, what it says, and its buttons, the accept first; and Report abuse,
 // ticked or not, as `view` shows it.
 base::Value PromptState(const ExtensionPrompt& prompt,
@@ -365,7 +365,7 @@ base::DictValue UiApp::Snapshot() const {
         contents->HasPictureInPictureDocument()) {
       picture_in_picture.Append(tab_id);
     }
-    // DevTools showing for the tab, as the Swift's model had them: docked
+    // DevTools showing for the tab: docked
     // beside it once their page settled where it docks, or in their own
     // window; not while Chrome is still making them.
     if (DevToolsWindow* window =

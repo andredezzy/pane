@@ -51,8 +51,8 @@ class Window;
 // action's popup (ADR 0031), the prompts that add or remove one (ADR 0056),
 // and the extensions' keyboard shortcuts (ADR 0098), each per profile: a
 // profile's extensions, pins, actions, and shortcuts are its own Chrome
-// profile's. Every press asks the app first (InteractionAllowed), as the
-// Swift's did. Esc closes the more menu, then the menu; so do a click outside
+// profile's. Every press asks the app first (InteractionAllowed, ADR 0042).
+// Esc closes the more menu, then the menu; so do a click outside
 // them, another tab, profile, or page, the window giving up the keys, and the
 // Lock. Chrome's own pages manage the rest (chrome://extensions, in the
 // profile's tab, D3).
@@ -155,7 +155,7 @@ class ExtensionsUi {
   // outside it.
   void AnswerPrompt(bool accepted);
   // The Dock shows another icon (the Theme changed it): adding's dialog,
-  // while it asks, shows that one, as the Swift's followed the Dock's.
+  // while it asks, shows that one (ADR 0089).
   void AppIconChanged();
   // The prompt asking, while one does.
   const ExtensionPrompt* prompt() const {

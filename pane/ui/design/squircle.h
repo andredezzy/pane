@@ -55,8 +55,8 @@ inline constexpr float kPanelLayerRadius = radius::kPanel * kCircularEquivalent;
 // size and radius, so a view painting each frame of a hover builds none.
 SkPath SquirclePath(const gfx::RectF& rect, float radius);
 
-// The line `width` wide drawn just inside the squircle's edge, as SwiftUI's
-// strokeBorder draws one: the squircle inset by half the width, its radius
+// The line `width` wide drawn just inside the squircle's edge, as Paper's
+// borders are: the squircle inset by half the width, its radius
 // shrinking with it, to stroke at `width`. A border's, and a ring's outside
 // a shape when given the ring's own bounds and radius.
 SkPath SquircleStrokePath(const gfx::RectF& rect, float radius, float width);

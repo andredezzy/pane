@@ -67,8 +67,8 @@ void FindInPage::OpenOnLastSearch(bool forward) {
   Step(forward);
 }
 
-// As Chrome's FindBarView::Find, but for the system's find text, which the
-// Swift's bar never wrote (OnUserChangedFindText).
+// As Chrome's FindBarView::Find, but for the system's find text, which Pane's
+// bar never writes (OnUserChangedFindText).
 void FindInPage::Find(const std::u16string& text) {
   state_.text = text;
   content::WebContents* contents = page();
@@ -78,8 +78,8 @@ void FindInPage::Find(const std::u16string& text) {
   if (text.empty()) {
     state_.matches.reset();
     state_.active = 0;
-    // Chrome's empty search unselects the page (kClear); the Swift's kept
-    // it, and its session goes on.
+    // Chrome's empty search unselects the page (kClear); here it stays
+    // selected (kKeep), and the session goes on.
     if (helper) {
       helper->StopFinding(find_in_page::SelectionAction::kKeep);
       helper->set_find_ui_active(true);
@@ -141,8 +141,7 @@ void FindInPage::SetFocusAndSelection() {
   }
 }
 
-// The field empties as the bar closes (ResultAction::kClear), as the
-// Swift's reset it.
+// The field empties as the bar closes (ResultAction::kClear).
 void FindInPage::ClearResults(
     const find_in_page::FindNotificationDetails& results) {
   state_.text.clear();
@@ -153,8 +152,8 @@ void FindInPage::ClearResults(
 
 // A text Chrome hands the bar: the system's find text (FindBarPlatformHelper,
 // as the bar is made and when Pane comes forward). Taken while the bar shows,
-// as Chrome searches it then; not while it's hidden, so the bar opens empty,
-// as the Swift's always did.
+// as Chrome searches it then; not while it's hidden, so the bar opens
+// empty.
 void FindInPage::SetFindTextAndSelectedRange(const std::u16string& find_text,
                                              const gfx::Range& selected_range) {
   if (!state_.visible || find_text == state_.text) {
@@ -202,7 +201,7 @@ bool FindInPage::IsFindBarVisible() const {
   return state_.visible;
 }
 
-// The page has the keys again, as the Swift's closeFind gave it them.
+// The page has the keys again, as Chrome's find bar gives them back.
 void FindInPage::RestoreSavedFocus() {
   if (host_) {
     host_->FindClosed(this);
@@ -210,7 +209,7 @@ void FindInPage::RestoreSavedFocus() {
 }
 
 // One find text for every tab, so none is prefilled from another tab's: the
-// Swift's field was the window's, empty at each opening.
+// field is empty at each opening.
 bool FindInPage::HasGlobalFindPasteboard() const {
   return true;
 }
@@ -219,7 +218,7 @@ void FindInPage::UpdateFindBarForChangedWebContents() {
   Changed();
 }
 
-// ⌘F never fills the field with the page's selection: the Swift's didn't.
+// ⌘F never fills the field with the page's selection.
 bool FindInPage::CanPopulateFromSelectedText() {
   return false;
 }

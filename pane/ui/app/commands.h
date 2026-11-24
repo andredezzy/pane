@@ -109,7 +109,7 @@ std::vector<Menu> MenusWithKeysOf(KeySystem system);
 
 // The platform's own items, which the menu bar alone shows and the
 // platform runs and enables (AppKit's actions, through the responder chain on
-// the Mac), as the Swift's did: About, Hide, Hide Others, Show All, the Edit
+// the Mac): About, Hide, Hide Others, Show All, the Edit
 // menu, Minimize, and Zoom. The window registers none of their keys: a field
 // or the page takes its own Cut, Copy, and Paste.
 bool IsPlatformCommand(Command command);

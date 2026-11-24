@@ -128,7 +128,7 @@ TEST_F(PanicWipeRunTest, WaitsOutTheWipedInstanceThenWipes) {
   ExpectErased();
 }
 
-// The switch counts wherever it is, as the Swift read it: after a "--" too.
+// The switch counts wherever it is: after a "--" too.
 TEST_F(PanicWipeRunTest, ReadsTheSwitchAfterArguments) {
   const scoped_refptr<LaunchErase> erase =
       AtLaunch({"--", "https://example.com", "--pane-wipe-after="});

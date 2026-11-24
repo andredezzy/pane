@@ -37,8 +37,7 @@ namespace pane {
 
 namespace {
 
-// The foreground at `alpha`, as SwiftUI's .opacity(alpha) of it, which an
-// animation moves along.
+// The foreground at `alpha`, which an animation moves along.
 SkColor ForegroundAt(SkColor foreground, double alpha) {
   return SkColorSetA(
       foreground,
@@ -65,9 +64,9 @@ const Curve& ShakeTime() {
   return *time;
 }
 
-// A digit: 26 points, SwiftUI's thin, the foreground at 85%, all of it lit;
-// its ring 1 point just inside its edge at 12%, 20% lit; filled at 10% while
-// pressed (numpad.tsx).
+// A digit: 26 points, extralight (Paper 03.6), the foreground at 85%, all
+// of it lit; its ring 1 point just inside its edge at 12%, 20% lit; filled
+// at 10% while pressed (numpad.tsx).
 constexpr TextStyle kDigitText{26, weight::kThin, 0};
 constexpr double kDigitAlpha = 0.85;
 constexpr double kRingAlpha = 0.12;
@@ -220,7 +219,7 @@ void PinDots::OnPaint(gfx::Canvas* canvas) {
       flags.setColor(ForegroundAt(foreground, fill));
       canvas->DrawCircle(center, kSize / 2.0f, flags);
     }
-    // The ring fades as the fill comes, as SwiftUI's overlay left.
+    // The ring fades as the fill comes.
     if (fill < 1) {
       flags.setStyle(cc::PaintFlags::kStroke_Style);
       flags.setStrokeWidth(kDotRing);

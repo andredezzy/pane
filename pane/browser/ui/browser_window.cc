@@ -597,9 +597,9 @@ void HostedBrowserWindow::ConfirmBrowserCloseWithPendingDownloads(
 }
 
 // Esc goes first to what Pane shows over the page (the tab switcher, an
-// extension's prompt or menu, a page's dialog), as the Swift app's keys went
-// (PaneKit's KeyRouting: "Esc leaves a page's fullscreen, unless the switcher
-// shows"); then it leaves fullscreen and pointer or keyboard lock, as in
+// extension's prompt or menu, a page's dialog), as the overlay on top takes
+// a key first (ADR 0079); then it leaves fullscreen and pointer or keyboard
+// lock, as in
 // Chrome. Every other key Chrome's manager hears as input, and never takes.
 content::KeyboardEventProcessingResult
 HostedBrowserWindow::PreHandleKeyboardEvent(

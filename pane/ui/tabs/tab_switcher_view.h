@@ -31,11 +31,11 @@ namespace pane {
 // in the middle of the window over a black 40% scrim. Each group's header is
 // its profile's dot and name; each row, its tab's favicon and title. The
 // selected row takes 14% of its profile's color with a 40% ring outside it,
-// and moves at once (DESIGN.md › Motion). It opens and closes at once, as the
-// Swift's did. Presses on the scrim reach what is under it, and those on the
-// panel go nowhere. Laid out on fractions of a point, as SwiftUI lays out its
-// 16.5-point headers, and drawn there: its rows sit where the Swift's do, to
-// the pixel. The scrim is a solid layer, drawn without paint; the panel and
+// and moves at once (DESIGN.md › Motion). It opens and closes at once.
+// Presses on the scrim reach what is under it, and those on the panel go
+// nowhere. Laid out on fractions of a point, its 16.5-point headers as Paper
+// 04.4 has them, and drawn there. The scrim is a solid layer, drawn without
+// paint; the panel and
 // its shadow paint a layer of their own, which a moved selection draws two
 // rows of again.
 class TabSwitcherView : public views::View, public views::ViewTargeterDelegate {

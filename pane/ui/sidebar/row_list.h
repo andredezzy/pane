@@ -21,8 +21,8 @@ namespace pane {
 // paint to layers of their own while it runs, and one whose place changes
 // slides there from where it stands, by its layer's transform, on Motion.slide:
 // it moves as one, its favicon and title together (the Swift's geometry group),
-// and no frame repaints. They are drawn in the order they stand, so a row
-// crossing another passes over it as the Swift's later row did.
+// and no frame repaints. They are drawn in the order they stand, so a later
+// row crossing another passes over it.
 class RowList : public views::View, public views::ViewObserver {
   METADATA_HEADER(RowList, views::View)
 

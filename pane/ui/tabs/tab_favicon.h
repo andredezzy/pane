@@ -19,7 +19,7 @@ enum class FaviconPlaceholder { kGlobe, kSquare };
 
 // A tab's favicon in its 16-point place, rounded as a favicon is (ADR 0057),
 // at `opacity`; without one, the placeholder in `color`. A place at a
-// fraction of a point draws there, as SwiftUI draws one on its pixels: the
+// fraction of a point draws there, as Paper draws one on its pixels: the
 // switcher's rows sit on half points.
 void PaintFavicon(gfx::Canvas& canvas,
                   const gfx::RectF& place,

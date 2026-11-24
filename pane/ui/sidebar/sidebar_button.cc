@@ -29,10 +29,10 @@ constexpr TextStyle kPlus{18, weight::kLight, 0};
 void PaintPlusMark(gfx::Canvas& canvas,
                    const gfx::RectF& place,
                    SkColor color) {
-  // Centered on the place to the fraction of a point, as SwiftUI centers the
-  // text's line in its frame, which the glyph's line overflows; Views lays
-  // text out on whole points, which put it half a point left of and under the
-  // Swift's (measured against its render).
+  // Centered on the place to the fraction of a point, the text's line
+  // centered in its frame, which the glyph's line overflows; Views lays text
+  // out on whole points, which put it half a point left of and under the
+  // middle.
   const gfx::FontList& font = SystemFont(kPlus.size, kPlus.weight);
   const float width = gfx::GetStringWidthF(u"+", font);
   const int height = font.GetHeight();

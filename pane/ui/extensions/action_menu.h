@@ -62,8 +62,7 @@ class ActionMenu : public ui::SimpleMenuModel::Delegate {
 
   ui::SimpleMenuModel& model() { return model_; }
   // Where the extension's own items sit in the model, [begin, end), and the
-  // place of its site access, for the channel, which reads them as the
-  // Swift's engine handed them over.
+  // place of its site access, for the channel.
   size_t items_begin() const { return items_begin_; }
   size_t items_end() const { return items_end_; }
   std::optional<size_t> site_access_index() const { return site_access_index_; }

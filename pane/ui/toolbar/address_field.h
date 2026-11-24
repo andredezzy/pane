@@ -92,8 +92,8 @@ class AddressField : public views::Textfield {
   bool pressing_ = false;
   bool selected_by_press_ = false;
   gfx::Point press_point_;
-  // Its selection dims while the window isn't the key one, as the Swift's
-  // NSTextField's did.
+  // Its selection dims while the window isn't the key one, as an
+  // NSTextField's does.
   SelectionFollowsWindow selection_{this};
 };
 

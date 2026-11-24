@@ -70,8 +70,8 @@ GURL TestURL() {
 }
 
 // What a failure is called beside the dot, in the sheet's words: Paper's
-// "Connection refused" for a proxy that won't take the connection, the
-// Swift's "Connection timed out", and otherwise the error's own name, as a
+// "Connection refused" for a proxy that won't take the connection,
+// "Connection timed out", and otherwise the error's own name, as a
 // phrase ("ERR_TUNNEL_CONNECTION_FAILED": "Tunnel connection failed").
 std::string ErrorText(int error) {
   switch (error) {

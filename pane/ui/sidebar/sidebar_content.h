@@ -13,9 +13,9 @@
 
 namespace pane {
 
-// What the sidebar shows, as values the app gives it (the Swift's SidebarView
-// read them off the model): a row redraws only when its own change (ADR
-// 0073). Sleeping tabs have no page, so the rows come from the model.
+// What the sidebar shows, as values the app gives it: a row redraws only
+// when its own change (ADR 0073). Sleeping tabs have no page, so the rows
+// come from the model.
 
 // A tab's row.
 struct SidebarTab {

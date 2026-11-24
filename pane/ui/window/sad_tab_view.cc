@@ -62,8 +62,8 @@ SadTabView::SadTabView(base::RepeatingClosure reload)
 
 SadTabView::~SadTabView() = default;
 
-// One column in the middle of the page's place, each line centered in it, as
-// SwiftUI centers them: on half points where the middle falls on one.
+// One column in the middle of the page's place, each line centered in it
+// (Paper 04.24): on half points where the middle falls on one.
 void SadTabView::Layout(PassKey) {
   const gfx::Size title = title_->GetPreferredSize();
   const gfx::Size message = message_->GetPreferredSize();

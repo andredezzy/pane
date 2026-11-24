@@ -32,8 +32,8 @@ namespace pane::model {
 // own in the temporary folder, held while the returned descriptor is.
 base::ScopedFD LockImagesForTesting();
 
-// Disk image tools in memory for the tests, as the Swift's scenarios faked
-// them: an attach gives a device, an open makes the mount point a plain
+// Disk image tools in memory for the tests: an attach gives a device, an
+// open makes the mount point a plain
 // folder, so what the volume does to its folders runs as it is, and a detach
 // gives the device up. Every call is recorded, in order, from whichever
 // sequence made it.

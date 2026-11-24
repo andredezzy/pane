@@ -39,7 +39,7 @@ class ExtensionActionsView : public views::View {
     Shows& operator=(const Shows&);
     ~Shows();
 
-    // The pinned actions, in the order of their names (the Swift's).
+    // The pinned actions, in the order of their names.
     std::vector<InstalledExtension> pinned;
     // The extension whose popup shows, and whose right-click menu does.
     std::optional<std::string> popup;

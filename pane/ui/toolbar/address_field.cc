@@ -56,8 +56,8 @@ constexpr int kLabelTrailing = 10;
 constexpr float kDividerWidth = 0.5f;
 constexpr float kDividerHeight = 18;
 
-// A text's width on a screen of `scale` pixels to the point, as SwiftUI lays
-// it out: rounded up to the pixel.
+// A text's width on a screen of `scale` pixels to the point, rounded up to
+// the pixel.
 float OnPixels(float width, float scale) {
   return std::ceil(width * scale) / scale;
 }
@@ -94,7 +94,7 @@ class AddressField::Label : public views::View {
   void Layout(PassKey) override {
     const int line = text::kSidebar.line_height;
     const int top = (height() - line) / 2;
-    // The domain at its own width, as SwiftUI's fixedSize, never cut.
+    // The domain at its own width, never cut (Paper 03.4).
     const int domain_width = domain_->GetPreferredSize().width();
     domain_->SetBounds(kLabelLeading, top, domain_width, line);
     divider_x_ =
@@ -205,8 +205,9 @@ void AddressField::UpdateLabel(bool editing) {
 }
 
 // A press that gives the field the focus places its caret, then selects all
-// of it, as the Swift's did a turn after: a key that comes next replaces the
-// address. A press into the field already being edited places the caret.
+// of it a turn after, as the Electron app's input.select() did: a key that
+// comes next replaces the address. A press into the field already being
+// edited places the caret.
 bool AddressField::OnMousePressed(const ui::MouseEvent& event) {
   const bool focusing = !HasFocus() && event.IsOnlyLeftMouseButton() &&
                         !event.IsShiftDown() && event.GetClickCount() == 1;
@@ -307,14 +308,14 @@ void AddressField::OnPaintBackground(gfx::Canvas* canvas) {
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
   flags.setColor(colors->GetColor(kPaneColorAddressHover));
-  // The fill fades in as a whole, as SwiftUI's animated opacity.
+  // The fill fades in as a whole (Motion.hover, DESIGN.md › Motion).
   flags.setAlphaf(flags.getAlphaf() * static_cast<float>(hover_.value()));
   canvas->DrawPath(SquirclePath(gfx::RectF(GetLocalBounds()), radius::kTab),
                    flags);
 }
 
-// Being edited: the ring's 1-point line just inside the edge (SwiftUI's
-// strokeBorder).
+// Being edited: the ring's 1-point line just inside the edge (Paper 03.4's
+// focused address).
 // Under a contrast theme, the edge where its fill told it apart, at rest
 // too (Paper 11.10).
 void AddressField::OnPaintBorder(gfx::Canvas* canvas) {

@@ -66,8 +66,8 @@ class AppEventsMac : public AppEvents {
                           events->OpenURLsHanded(std::move(urls));
                         }];
     // A process started from the app in front is made active as it finishes
-    // launching (AppKit does, on this Mac, for the published Swift app as
-    // much as this one), and kept the front for the whole run. A scenario's
+    // launching (AppKit does so on this Mac), and kept the front for the
+    // whole run. A scenario's
     // copy that may not take it gives it back at once to the app it took it
     // from: NSApp's deactivate leaves the app active since macOS 14, so the
     // other app is activated, as the active app may do.

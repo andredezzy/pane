@@ -65,8 +65,8 @@ class DialogHeading : public views::View {
 // once, as it comes (ADR 0123). It comes growing from 0.97 about its middle
 // as it fades in, and goes the same way (Motion.panel), on the compositor's
 // own animation, so the card and its shadow raster once, at their end's
-// scale. It is placed to the fraction of a point, as SwiftUI places a view:
-// its layer carries what whole points leave. A press on the card stays with
+// scale. It is placed to the fraction of a point, as Paper's layout places
+// it: its layer carries what whole points leave. A press on the card stays with
 // it; one on its shadow goes to what lies under it.
 class DialogCard : public views::View, public views::ViewTargeterDelegate {
   METADATA_HEADER(DialogCard, views::View)
@@ -83,15 +83,15 @@ class DialogCard : public views::View, public views::ViewTargeterDelegate {
     ui::ColorVariant fill;
     // The edge, `edge_width` wide: a ring outside the fill, its corner the
     // fill's grown by as much (a card's), or a line just inside the fill's
-    // own edge, as SwiftUI's strokeBorder draws one (an alert's hairline).
+    // own edge, as Paper's borders are (an alert's hairline).
     ui::ColorVariant edge;
     float edge_width = 1;
     bool edge_outside = true;
     // The content's inset from the fill's edge.
     gfx::Insets padding;
     // The shadow's color, how far down it falls, and its Gaussian's
-    // deviation (SwiftUI's shadow radius, half CSS's blur). A translucent
-    // fill casts it as much lighter, as SwiftUI's does.
+    // deviation (half CSS's blur, as Paper 02.5 gives it). A translucent
+    // fill casts it as much lighter.
     ui::ColorVariant shadow;
     gfx::Vector2dF shadow_offset;
     float shadow_sigma = 0;
@@ -165,7 +165,7 @@ class FocusTrap : public views::FocusTraversable {
 // A dialog's icon tile (Quit Pane?'s, Windows' system alert's; Paper 04.5,
 // 11.13 A): 40 points, rounded 18, the icon's 22 in its middle, stroked
 // 1.75 in the foreground; under a contrast theme, its edge where its fill
-// told it apart (11.10). Assistive technologies skip it, as the Swift's did.
+// told it apart (11.10). Assistive technologies skip it: it only decorates.
 class DialogTile : public views::View {
   METADATA_HEADER(DialogTile, views::View)
 
@@ -189,8 +189,8 @@ class DialogTile : public views::View {
 // 14%, 45% on dark, and the dialog's card in its middle (DialogCard), `width`
 // points wide, its content 24 in, rounded 29, on a 1-point ring outside it
 // and its shadow (0 24px 64px, black 16%, 50% on dark). The scrim and the
-// card fade apart, each on a layer of its own, as the Swift's modal() faded
-// them (ADR 0123). A click on the scrim and Esc dismiss it; Return accepts it.
+// card fade apart, each on a layer of its own (ADR 0123). A click on the
+// scrim and Esc dismiss it; Return accepts it.
 // Which other keys it takes is its `keys`.
 class ModalDialog : public views::View {
   METADATA_HEADER(ModalDialog, views::View)
@@ -207,8 +207,8 @@ class ModalDialog : public views::View {
   };
 
   // Esc and Return alone, the window's other keys going on, and its content
-  // having the keys' focus to move in (the App icon picker's, as the Swift's
-  // KeyRouting let them); or every key, none reaching what is under it or the
+  // having the keys' focus to move in (the App icon picker's, Paper 06.2); or
+  // every key, none reaching what is under it or the
   // window's commands (Quit Pane?'s, as the PIN screen's): only the menu
   // bar's Quit goes on, which the window lets through (TakesEveryKey); or a
   // dialog's own keys (Windows' system alert's and About Pane's, Paper 11.13
@@ -269,8 +269,8 @@ class ModalDialog : public views::View {
   bool OnKeyReleased(const ui::KeyEvent& event) override;
 
  private:
-  // Lays out the scrim and the card, in this view's middle as SwiftUI
-  // centers it; whether the card moved.
+  // Lays out the scrim and the card, in this view's middle as Paper centers
+  // it; whether the card moved.
   bool Place();
   // The dialog at rest where it is heading.
   void Settle();

@@ -39,7 +39,7 @@ void KillProcesses(const std::vector<base::ProcessId>& processes) {
   }
 }
 
-// As the Swift did: none of them answers a signal any more.
+// Until none of them answers a signal any more, or the time is up.
 void WaitForProcesses(const std::vector<base::ProcessId>& processes,
                       base::TimeDelta timeout) {
   const base::TimeTicks deadline = base::TimeTicks::Now() + timeout;
@@ -51,7 +51,7 @@ void WaitForProcesses(const std::vector<base::ProcessId>& processes,
   }
 }
 
-// As the Swift's CommandLine.arguments.
+// Every argument the process started with, as the system gave them.
 base::CommandLine::StringVector StartedWith() {
   // SAFETY: the system gives `*_NSGetArgc()` arguments in `*_NSGetArgv()`.
   const base::span<char*> arguments = UNSAFE_BUFFERS(

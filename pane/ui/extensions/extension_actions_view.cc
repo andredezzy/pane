@@ -196,7 +196,7 @@ class ExtensionActionsView::Capsule : public views::View {
   }
 
   // The ring just inside the capsule's edge: the buttons sit a point in
-  // from it, so it shows over nothing of theirs, as the Swift's overlay.
+  // from it, so it shows over nothing of theirs.
   void OnPaint(gfx::Canvas* canvas) override {
     const float opacity = popup_shows_ ? 1.0f : hover_.value();
     const ui::ColorProvider* colors = GetColorProvider();

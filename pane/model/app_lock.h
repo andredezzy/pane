@@ -203,8 +203,7 @@ class AppLock {
   };
 
   // `vault` and `delegate` outlive it. Without `launch_secret` (no launch
-  // looked: the tests), the lock finds the secret, or makes it, itself, as the
-  // Swift app's did.
+  // looked: the tests), the lock finds the secret, or makes it, itself.
   AppLock(const base::FilePath& data_directory,
           Loaded loaded,
           DataVault& vault,

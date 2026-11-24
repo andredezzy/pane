@@ -34,7 +34,7 @@ class PlacementTest : public testing::Test {
 }  // namespace
 
 // At 2x, a half point is a pixel: the bounds take the whole points, the layer
-// the half, as SwiftUI puts a view centered on 278.5 at pixel 557.
+// the half: a view centered on 278.5 lands on pixel 557.
 TEST_F(PlacementTest, HalfPointsOnTwiceTheScale) {
   PlaceOnPixels(*view_, gfx::RectF(10.5f, 278.5f, 30, 40), 2);
   EXPECT_EQ(view_->bounds(), gfx::Rect(10, 278, 30, 40));
@@ -42,7 +42,7 @@ TEST_F(PlacementTest, HalfPointsOnTwiceTheScale) {
 }
 
 // What falls between the screen's pixels rounds to the nearest one: a quarter
-// point at 2x is half a pixel, rounded up, as SwiftUI rounds 599.5 to 600.
+// point at 2x is half a pixel, rounded up: 599.5 to 600.
 TEST_F(PlacementTest, RoundsToTheScreensPixels) {
   PlaceOnPixels(*view_, gfx::RectF(0, 20.25f, 30, 40), 2);
   EXPECT_EQ(view_->GetTransform(), gfx::Transform::MakeTranslation(0, 0.5f));

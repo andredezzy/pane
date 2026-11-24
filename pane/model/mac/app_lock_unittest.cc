@@ -643,9 +643,8 @@ TEST_F(AppLockTest, TheFifthWrongPinInSettingsLocks) {
 }
 
 // A Settings sheet dismissed while its wrong PIN is checked: the attempt
-// still counts toward the five, and nothing shuts the lock. The Swift took
-// the sheet gone for a key no PIN of security.json opens, and shut it until
-// Pane was opened again.
+// still counts toward the five, and nothing shuts the lock, as it would if
+// the sheet gone were taken for a key no PIN of security.json opens.
 TEST_F(AppLockTest, ADismissedSheetsWrongPinCountsAndLocksNothing) {
   keychain_.SetEngineSecret(kSecret);
   SaveKey("1234");

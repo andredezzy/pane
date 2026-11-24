@@ -20,7 +20,7 @@ namespace pane {
 // after (1.5 points, the foreground at 25%). A dot fills as its ring fades,
 // over 0.15 s easing in and out (Motion's Dot), and as a new PIN's dots grow
 // or shrink in number the others slide to their new places over the same
-// time, a new one there at once, as SwiftUI drew them. A wrong PIN shakes the
+// time, a new one there at once. A wrong PIN shakes the
 // row (ShakeOffset), unless motion is reduced, on a layer of its own, so the
 // shake repaints nothing. The row sits in the middle of the view, to the
 // fraction of a point.
@@ -67,8 +67,8 @@ class PinDots : public views::View {
 // The numpad (the Swift's Numpad): 1 to 9, then 0 and Delete, in keys 64
 // points across, 14 apart. A digit is a ring with its number, 26 points and
 // thin; Delete, the Electron app's glyph. Each lights under the pointer and
-// fills while pressed, fading over 0.15 s both ways (Motion.hover), as the
-// Swift's keys did; neither takes the keyboard, which the PIN screen holds.
+// fills while pressed, fading over 0.15 s both ways (Motion.hover);
+// neither takes the keyboard, which the PIN screen holds.
 class Numpad : public views::View {
   METADATA_HEADER(Numpad, views::View)
 

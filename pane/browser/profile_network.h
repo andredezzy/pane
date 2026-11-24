@@ -31,8 +31,8 @@ class ProxyTest;
 class SocksRelay;
 
 // Each profile's network (ADR 0037), as the Electron app set up a session
-// (apps/veil profile/profile.ts) and the Swift app's ProfileNetwork did: its
-// proxy as Chrome's own fixed rule, in the profile's prefs, through a local
+// (apps/veil profile/profile.ts): its proxy as Chrome's own fixed rule, in
+// the profile's prefs, through a local
 // relay for SOCKS with credentials; the WebRTC policy that keeps the real
 // address from leaking past it; the proxy's sign-in, answered with the
 // profile's credentials; and the proxy's connection test, for the sidebar's

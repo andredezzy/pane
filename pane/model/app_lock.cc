@@ -562,9 +562,9 @@ void AppLock::OnOpened(bool unlocking, bool with_pin, Opened opened) {
 
     case Opened::Kind::kWrongPin:
       // The launch's open, without a PIN: a key sealed with a PIN
-      // security.json no longer names. The Swift told it by the PIN screen
-      // being gone, which a Settings sheet dismissed while its PIN was
-      // checked is too, and shut the lock for good on a wrong PIN there.
+      // security.json no longer names. Not told by the PIN screen being
+      // gone, which a Settings sheet dismissed while its PIN was checked is
+      // too: that would shut the lock for good on a wrong PIN there.
       if (!with_pin) {
         is_locked_ = true;
         entry_ = PinEntry::Unreadable(PinEntry::UnreadableReason::kKey,

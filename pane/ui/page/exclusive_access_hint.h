@@ -34,8 +34,7 @@ class ExclusiveAccessHint : public views::View {
   ~ExclusiveAccessHint() override;
 
   // Shows `hint`, or goes, at once, for an empty one. The same hint again
-  // changes nothing, as the Swift's task(id:) began again only for a new
-  // text.
+  // changes nothing; a new text begins again.
   void SetHint(const std::u16string& hint);
   const std::u16string& hint() const { return hint_; }
 

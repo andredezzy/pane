@@ -6,8 +6,8 @@
 
 namespace pane {
 
-// The Swift's ring: 1 point in the ring's grey, on the edge of a filled
-// button as of any other.
+// The Mac's ring (ring-1, Paper 03.4): 1 point in the ring's grey, on the
+// edge of a filled button as of any other.
 FocusRingStyle ControlFocusRingStyle() {
   return {1, kPaneColorRing, 0};
 }

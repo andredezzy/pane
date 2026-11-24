@@ -19,7 +19,7 @@ inline constexpr std::string_view kMockKeychainSecret = "Pane mock keychain";
 
 // What the scenarios set (tests/lib), read in a scenario's run alone: one on
 // the mock keychain, whose fixed secret opens none of the user's data (ADR
-// 0115), as the Swift app's TestHooks read them. A process of the user's that
+// 0115). A process of the user's that
 // starts Pane with them gets nothing from them: no automation channel, no
 // data root or update server of its own, no faster clocks.
 

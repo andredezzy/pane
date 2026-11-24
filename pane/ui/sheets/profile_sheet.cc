@@ -89,7 +89,7 @@ constexpr int kSectionTitleInset = 15;
 constexpr int kSectionTitleSpacing = 8;
 // A card: rounded 15, its rows inside its 1-point border.
 constexpr int kCardBorder = 1;
-// A card's row (the Swift's sheetRowPadding): 15 in, 14 from its end, 12
+// A card's row (Paper 05.4): 15 in, 14 from its end, 12
 // over and under, the proxy's 14 under.
 constexpr gfx::Insets kRowPadding = gfx::Insets::TLBR(12, 15, 12, 14);
 constexpr gfx::Insets kProxyPadding = gfx::Insets::TLBR(12, 15, 14, 14);
@@ -306,8 +306,7 @@ class SectionCard : public Column {
 
   void PaintChildren(const views::PaintInfo& info) override {
     Column::PaintChildren(info);
-    // The border over the rows, as SwiftUI's overlay draws it, so a rule's
-    // ends meet it.
+    // The border over the rows, so a rule's ends meet it (Paper 05.4).
     const ui::ColorProvider* colors = GetColorProvider();
     if (!colors) {
       return;
@@ -566,8 +565,7 @@ class ProfileSheet::Swatch : public views::Button,
   Swatch(model::ProfileColor color, PressedCallback pressed)
       : views::Button(std::move(pressed)), color_(color) {
     SetID(kViewIdProfileSwatch);
-    // The swatch alone takes the press, as the Swift's did, not its ring's
-    // room.
+    // The swatch alone takes the press, not its ring's room.
     SetEventTargeter(std::make_unique<views::ViewTargeter>(this));
     GetViewAccessibility().SetName(ColorTitle(color));
     screen_reader::SetChoice(
@@ -654,7 +652,8 @@ END_METADATA
 // A platform: its real logo over its name, on a tile rounded 11, the chosen
 // one filled and ringed in the foreground, 2 points, as the App icon
 // picker's (ADR 0089). Hover fills the others; choosing is instant. Its
-// tile's edges sit on the screen's pixels where SwiftUI put them, a third of
+// tile's edges sit on the screen's pixels where Paper 05.4 puts them, a
+// third of
 // the row each: Views' whole points leave it a share of one.
 class ProfileSheet::PlatformTile : public views::Button {
   METADATA_HEADER(PlatformTile, views::Button)
@@ -798,7 +797,7 @@ BEGIN_METADATA(ProfileSheet, PlatformTile)
 END_METADATA
 
 // The three tiles across the row, 8 apart, a third of what is left each,
-// their edges on the screen's pixels as SwiftUI put them.
+// their edges on the screen's pixels as Paper 05.4 puts them.
 class ProfileSheet::TileRow : public views::View {
   METADATA_HEADER(TileRow, views::View)
 
@@ -957,7 +956,7 @@ class ProfileSheet::AddressField : public views::View,
   }
 
   void PaintChildren(const views::PaintInfo& info) override {
-    // The parts clipped to the field's corners, as the Swift's clipShape: the
+    // The parts clipped to the field's corners: the
     // type's hover is a rectangle. The recording is in the screen's pixels,
     // as View::Paint's own clip is.
     {
@@ -1359,7 +1358,7 @@ BEGIN_METADATA(Warning)
 END_METADATA
 
 // Test connection on the card's field fill, which stays whole while the
-// button dims, as the Swift's background sat outside the button's opacity.
+// button dims (Paper 03.7's Test connection, testing).
 class TestButtonPlace : public views::View {
   METADATA_HEADER(TestButtonPlace, views::View)
 
@@ -1451,7 +1450,7 @@ ProfileSheet::ProfileSheet(Callbacks callbacks)
   scroll_->SetBackgroundColor(std::nullopt);
   scroll_->SetDrawOverflowIndicator(false);
   scroll_->SetUseContentsPreferredSize(true);
-  // The body's contents (the Swift's VStack in its ScrollView): 20 in, the
+  // The body's contents (Paper 05.4): 20 in, the
   // name and the color, then each section's label over its card, 18 apart.
   contents_ = scroll_->SetContents(
       std::make_unique<Column>(gfx::Insets(kInset), kSectionSpacing));

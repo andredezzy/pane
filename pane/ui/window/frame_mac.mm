@@ -189,7 +189,7 @@ class Frame : public views::NativeWidgetMac {
     // (NativeWidgetNSWindowBridge::CreateNSWindow), which a window class of
     // Pane's goes without: the widget, not AppKit, releases the window; the
     // title bar is transparent and its title hidden, so presses there reach
-    // the views under it, as the Swift app's did (ADR 0036); and the window
+    // the views under it (ADR 0036); and the window
     // animates in as a document's.
     window.releasedWhenClosed = NO;
     window.titlebarAppearsTransparent = params->titlebar_appears_transparent;

@@ -439,8 +439,8 @@ constexpr LogoPath kTuxPaths[] = {
      .gradient = 19},
 };
 
-// The edge Tux takes on dark, a blur of its outline in the edge's color, as
-// SwiftUI's shadow(radius: 0.375) drew it.
+// The edge Tux takes on dark, a blur of its outline in the edge's color, a
+// Gaussian of 0.375 of a point.
 constexpr float kTuxEdgeBlur = 0.375f;
 
 const SkPath& ParsedPath(const char* d) {

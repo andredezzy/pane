@@ -22,16 +22,17 @@ struct FocusRingStyle {
   float off_fill;
 };
 
-// The Mac's ring, the Swift's: 1 point in the ring's grey. Windows' (Paper
-// 11.17 B): 2 points in the text's color, as Windows 11 draws its own focus,
-// 1 point off a strong fill, the card between, where a ring in the fill's own
-// color would vanish (11.18); Highlight under a contrast theme.
+// The Mac's ring: 1 point in the ring's grey (ring-1, Paper 03.4). Windows'
+// (Paper 11.17 B): 2 points in the text's color, as Windows 11 draws its own
+// focus, 1 point off a strong fill, the card between, where a ring in the
+// fill's own color would vanish (11.18); Highlight under a contrast theme.
 FocusRingStyle ControlFocusRingStyle();
 
-// The ring around a control while it has the keyboard, as the Swift's field
-// draws one: a line just outside its edge, on its shape grown by the line
-// (a field's 12 around its 11, ADR 0057); outside the border, not as it (ADR
-// 0058). A field's is the Mac's 1 point in the ring's color on every system,
+// The ring around a control while it has the keyboard, as a focused field
+// draws one (Paper 03.4's ring-1): a line just outside its edge, on its
+// shape grown by the line (a field's 12 around its 11, ADR 0057); outside
+// the border, not as it (ADR 0058). A field's is the Mac's 1 point in the
+// ring's color on every system,
 // its caret showing where the keys are (Paper 11.17); a control's, the
 // system's (ControlFocusRingStyle). views::FocusRing draws only rectangles
 // and rounded ones in 158 (focus_ring.cc, IsPathUsable and

@@ -65,7 +65,7 @@ SkPath ControlShape::PathIn(const gfx::RectF& bounds) const {
     case Kind::kSquircle:
       return SquirclePath(bounds, radius_);
     case Kind::kCircle: {
-      // A circle in the middle of its frame, as SwiftUI's.
+      // A circle in the middle of its frame (DESIGN.md › Shape).
       const float side = std::min(bounds.width(), bounds.height());
       const gfx::PointF center = bounds.CenterPoint();
       return SkPath::Circle(center.x(), center.y(), side / 2);

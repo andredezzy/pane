@@ -14,7 +14,7 @@ gfx::FontList PlatformSystemFont(int size, gfx::Font::Weight weight) {
   return base.Derive(size - base.GetFontSize(), gfx::Font::NORMAL, weight);
 }
 
-// Grayscale, as the Swift's was (ADR 0060).
+// Grayscale, by the user's call (ADR 0060).
 bool LabelsTakeClearType() {
   return false;
 }

@@ -15,8 +15,8 @@ namespace pane {
 // An icon button (the Swift's IconButtonStyle): the icon centered in a
 // circle `size` points across, muted, turning to the accent's foreground as
 // the accent fades in under it (Motion.hover); a press at once; 40% while
-// disabled. `name` is what assistive technologies read, and its tooltip, as
-// the Swift's .help. Another look takes another shape or none of the fill,
+// disabled. `name` is what assistive technologies read, and its tooltip.
+// Another look takes another shape or none of the fill,
 // as the update pill's dismiss (a 4-point squircle, its tint alone lit).
 class IconButton : public views::Button {
   METADATA_HEADER(IconButton, views::Button)

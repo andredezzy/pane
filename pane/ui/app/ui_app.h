@@ -68,7 +68,7 @@ struct ProfileDraft;
 
 // Pane's Views UI, as a launch of Chromium's loader starts it
 // (StartViewsLaunch): the model, the window that shows it, and the engine's
-// pages, joined as the Swift app's BrowserController joined them. The
+// pages, joined here (ADR 0077). The
 // profiles and their tabs are the model's, loaded once the data key opens and
 // saved as they change (ModelStore); a tab has a page (a WebContents in its
 // profile's hidden Browser) once it is selected, and keeps its place while it
@@ -106,12 +106,12 @@ class UiApp : public AppData::Client,
   // moved in. Every way in asks this one question, as it reaches the
   // intents below: the window's presses and keys, the menus, the switcher,
   // a URL handed over, and the channel, which stands in for them. Only the
-  // update's check, download, and dismiss, the window shown again, and Quit
-  // go on behind it, as the Swift's menu let them.
+  // update's check, download, and dismiss (DESIGN.md › Updates), the window
+  // shown again, and Quit (ADR 0053) go on behind it.
   bool InteractionAllowed() const;
 
   // What the user asks, from the window, the menus, and the channel alike
-  // (the Swift's intents). Each that acts on the browser asks
+  // (ADR 0077's intents). Each that acts on the browser asks
   // InteractionAllowed() first and does nothing without it; a URL handed
   // over waits for it, and Quit, the window shown again, and a Lock (which
   // needs a PIN) go on.
@@ -148,8 +148,8 @@ class UiApp : public AppData::Client,
   // A theme reaches the app, its menus, and its pages at once (ADR 0001),
   // and an App icon the Dock (ADR 0089); each is saved as the model saves a
   // change. Settings changes them, and shows only where interaction is
-  // allowed (ShowPage); the channel stands in for it at any time, as the
-  // Swift's did, so a scenario sees the Lock's panel in either theme.
+  // allowed (ShowPage); the channel stands in for it at any time (ADR 0018),
+  // so a scenario sees the Lock's panel in either theme.
   void ChangeSettings(base::FunctionRef<void(model::AppSettings&)> change);
   // What changed is written; `written` runs once it is on the disk.
   void SaveNow(base::OnceClosure written);
@@ -242,7 +242,8 @@ class UiApp : public AppData::Client,
   // Releases every page of a profile; its tabs stay (CONTEXT.md: Unload).
   void UnloadProfile(const std::string& profile_id) override;
 
-  // What shows, for the channel's replies, in the Swift app's shape.
+  // What shows, for the channel's replies, in the shape the scenarios read
+  // (ADR 0018).
   base::DictValue Snapshot() const;
 
   // AppData::Client:
@@ -322,9 +323,9 @@ class UiApp : public AppData::Client,
   void ShowContextMenu(content::RenderFrameHost& frame,
                        const content::ContextMenuParams& params) override;
 
-  // CommandRunner, for the menu bar and the window's keys alike: what the
-  // Swift's menu enabled (behind the Lock, Quit and Check for Updates…
-  // alone; Lock Pane with a PIN), and each command's intent.
+  // CommandRunner, for the menu bar and the window's keys alike: what each
+  // item enables (behind the Lock, Quit and Check for Updates… alone, ADR 0053
+  // and 0116; Lock Pane with a PIN), and each command's intent.
   bool IsCommandEnabled(Command command) override;
   void RunCommand(Command command) override;
   std::optional<std::u16string> CommandTitle(Command command) override;

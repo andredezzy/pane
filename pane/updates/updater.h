@@ -63,7 +63,7 @@ class Updater {
   // installs it: GitHub's latest release, the user's Downloads, and yes,
   // unless a scenario's copy (the mock keychain) points them elsewhere
   // (PANE_UPDATE_URL, PANE_UPDATE_DOWNLOADS, PANE_UPDATE_OPEN=0,
-  // PANE_UPDATE_INSTALL=0), as the Swift's TestHooks.
+  // PANE_UPDATE_INSTALL=0; test_hooks.h).
   struct Config {
     Config();
     Config(const Config&);
@@ -233,7 +233,7 @@ class Updater {
   base::WeakPtrFactory<Updater> weak_factory_{this};
 };
 
-// The status's name, as the channel and the Swift's snapshot give it.
+// The status's name, as the channel gives it.
 std::string_view UpdateStatusName(Updater::Status status);
 
 }  // namespace pane

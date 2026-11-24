@@ -35,8 +35,8 @@ ResizeHandle::ResizeHandle(Callbacks callbacks)
   GetViewAccessibility().AddAction(ax::mojom::Action::kDecrement);
   // A splitter has its value and its steps only focusable, as ARIA's
   // separator (AXNodeData::IsRangeValueSupported): unfocusable, it gave a
-  // screen reader no width. It takes the focus in accessibility mode alone;
-  // the Swift's handle took no Tab.
+  // screen reader no width. It takes the focus in accessibility mode alone
+  // (ADR 0071), no stop of Tab's.
   SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
   SetWidth(model::kSidebarWidth);
 }

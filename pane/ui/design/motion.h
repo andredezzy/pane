@@ -82,9 +82,8 @@ class Curve {
   base::TimeDelta delay_;
 };
 
-// Every curve Pane moves by, by what it is for: the Swift app's Motion table,
-// all 16 (DESIGN.md › Motion), and the update dot's pulse, which the Swift
-// passed through Motion.unlessReduced. SwiftUI's easeOut, easeIn, and
+// Every curve Pane moves by, by what it is for (DESIGN.md › Motion), the
+// update dot's pulse among them. SwiftUI's easeOut, easeIn, and
 // easeInOut are CSS's (0, 0, 0.58, 1), (0.42, 0, 1, 1), and (0.42, 0, 0.58,
 // 1). A driver takes none while the system asks for less motion (IsReduced):
 // every change is then at once, so a view honors the setting with no check of

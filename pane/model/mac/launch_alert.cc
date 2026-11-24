@@ -88,9 +88,9 @@ class SystemLaunchAlert : public LaunchAlert {
       notification =
           Notify(title, message, 0, default_button, alternate_button);
     }
-    // As a user who presses nothing. The Swift returned at once when the
-    // system would not show it, and the migration then asked again at once,
-    // in a loop, for as long as the Electron app ran.
+    // As a user who presses nothing: returned at once when the system would
+    // not show it, the migration would ask again at once, in a loop, for as
+    // long as the Electron app ran.
     if (!notification) {
       while (dismiss_when && !dismiss_when.Run()) {
         base::PlatformThread::Sleep(base::Seconds(1));

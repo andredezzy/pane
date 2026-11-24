@@ -162,14 +162,13 @@ class PageDialog : public views::View {
   void TakeFocus();
   // Esc dismisses it, as Chrome's dialogs' Cancel, Wait, and a permission's
   // dismissal; Return presses the default, the first. The window hands it
-  // the two ahead of what has its keys, a field or the address included, as
-  // the Swift's key monitor did (RootView).
+  // the two ahead of what has its keys, a field or the address included (ADR
+  // 0079, RootView).
   void PressKey(bool escape);
   // It answers no more: its presses and keys do nothing.
   void Retire();
   // How tall it may stand, its edges' padding included: past it, its
-  // message scrolls, at most 320 points of it showing (the Swift's
-  // ViewThatFits).
+  // message scrolls, at most 320 points of it showing.
   void SetMostHeight(int height);
   // Tab and Shift-Tab: the next field, or button, round the dialog.
   void MoveFocus(bool reverse);

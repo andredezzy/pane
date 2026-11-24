@@ -56,7 +56,7 @@ std::string PhaseName(const DataVault& vault) {
   }
 }
 
-// The PIN screen, as the Swift app's channel reported it.
+// The PIN screen, as the channel reports it (ADR 0018).
 base::Value Screen(const std::optional<model::PinEntry>& entry) {
   if (!entry) {
     return base::Value();
@@ -414,8 +414,7 @@ void DataDidStop() {
     // What is open closes: on the Mac the image detaches, mounted or still
     // locked, the 5 s an attach or a lock's detach still under way may take
     // waited for first (VolumePlace). Nothing of Chromium's is left to fire
-    // meanwhile: the wait spins no run loop, where the Swift's spun the main
-    // one, and cancelled Chromium's timers first.
+    // meanwhile: the wait spins no run loop.
     data->EngineDidStop();
   }
 

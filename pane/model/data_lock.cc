@@ -15,8 +15,7 @@ DataLock::~DataLock() = default;
 // static
 std::unique_ptr<DataLock> DataLock::Wait(const base::FilePath& data_directory,
                                          base::TimeDelta timeout) {
-  // Monotonic, where the Swift read the wall clock: a clock set back would
-  // have stretched the wait.
+  // Monotonic: a clock set back would stretch the wait.
   const base::TimeTicks deadline = base::TimeTicks::Now() + timeout;
   while (true) {
     if (std::unique_ptr<DataLock> lock = Take(data_directory)) {

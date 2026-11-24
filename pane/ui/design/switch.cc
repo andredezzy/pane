@@ -33,9 +33,9 @@ constexpr float kThumbInset = 2;
 constexpr int kSpacing = 8;
 constexpr float kDisabledOpacity = 0.5f;
 
-// shadow-lg under the thumb: two soft layers, each black at 10%, as SwiftUI
-// drew them (its shadow's radius is a Gaussian's sigma, half CSS's blur),
-// in the view's own units, as gfx's shadows are.
+// shadow-lg under the thumb (Paper 03.8): two soft layers, each black at
+// 10%, a Gaussian's sigma half CSS's blur, in the view's own units, as gfx's
+// shadows are.
 sk_sp<cc::DrawLooper> ThumbShadow() {
   constexpr SkColor4f kShadow = {0, 0, 0, 0.1f};
   cc::DrawLooperBuilder looper;
@@ -54,7 +54,7 @@ constexpr gfx::OutsetsF kShadowReach = gfx::OutsetsF::TLBR(9, 18, 27, 18);
 
 // The thumb on a layer of its own, as views::ToggleButton's is: its shadow
 // reaches past the track and past the row's end, where the switch's own
-// painting stops at its bounds, as SwiftUI's shadow did not.
+// painting stops at its bounds.
 class Switch::Thumb : public views::View {
   METADATA_HEADER(Thumb, views::View)
 

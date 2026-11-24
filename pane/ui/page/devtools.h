@@ -33,7 +33,7 @@ DockedDevTools DockedDevToolsFor(content::WebContents* page,
 // Developer Tools (⇧⌘I, the Swift's toggleDevTools): DevTools docked to
 // `page` close, as their own close button closes them; otherwise they open
 // as they last were, docked or in their own window (brought forward if
-// open, where the Swift's key did nothing), timed to the frame of
+// open), timed to the frame of
 // `compositor()` that shows their first paint.
 void ToggleDevTools(content::WebContents* page,
                     base::RepeatingCallback<::ui::Compositor*()> compositor);

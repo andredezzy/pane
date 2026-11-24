@@ -33,7 +33,7 @@ namespace pane {
 namespace {
 
 // The shadow: black at 12%, in both appearances, 4 points down, a Gaussian
-// of 8 (SwiftUI's shadow radius is the Gaussian's sigma).
+// of 8, half the 16-point blur Paper 02.5 gives it.
 constexpr SkColor4f kShadow = {0, 0, 0, 0.12f};
 constexpr float kShadowDown = 4;
 constexpr float kShadowSigma = 8;

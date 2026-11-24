@@ -21,7 +21,7 @@ class Widget;
 namespace pane {
 
 // Puts `view` at `bounds` in its parent, fractions of a point included, as
-// SwiftUI places a view on the screen's pixels: half points at 2×, where
+// Paper's boards land on the screen's pixels: half points at 2×, where
 // Views lays out on whole points. Its bounds go to the whole points at the
 // place's top left, and its layer moves by the rest, rounded to the screen's
 // pixels at `scale`, so it draws as crisply as at a whole point and takes

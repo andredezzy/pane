@@ -17,8 +17,7 @@ namespace {
 
 constexpr int64_t kBytesPerMB = 1024 * 1024;
 
-// The log keeps no profile's id or path, which the Swift app's logger
-// redacted: only that a trim failed.
+// The log keeps no profile's id or path: only that a trim failed.
 void LogWarning(const std::string& warning) {
   LOG(ERROR) << "Trimming a profile's cache failed.";
 }

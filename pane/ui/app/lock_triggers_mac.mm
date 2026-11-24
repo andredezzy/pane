@@ -13,8 +13,8 @@ namespace pane {
 namespace {
 
 // The Mac's: its displays sleeping and another user taking the session, from
-// NSWorkspace's own notifications, as the Swift's LockController heard them;
-// Pane leaving the front, from NSApplication's.
+// NSWorkspace's own notifications; Pane leaving the front, from
+// NSApplication's.
 class MacSignals : public LockTriggers::Signals {
  public:
   MacSignals(base::RepeatingClosure lock, base::RepeatingClosure left_front)

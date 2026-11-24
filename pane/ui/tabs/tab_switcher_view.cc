@@ -33,8 +33,8 @@ namespace {
 
 // The panel: 320 wide, 10 inside its 1-point ring (CSS's p-2.5 within its
 // border), its groups 8 apart; rounded 22, popover's fill, its ring the
-// foreground at 10%, its shadow 6 down, a Gaussian of 10 (SwiftUI's shadow
-// radius is the Gaussian's sigma).
+// foreground at 10%, its shadow 6 down, a Gaussian of 10, half the 20-point
+// blur Paper 02.5 gives a popover.
 constexpr float kWidth = 320;
 constexpr float kPadding = 11;
 constexpr float kGroupSpacing = 8;
@@ -227,7 +227,8 @@ float TabSwitcherView::Scale() const {
   return layer() ? layer()->device_scale_factor() : 1;
 }
 
-// SwiftUI's: the panel in the window's middle, its origin on the screen's
+// As Paper 04.4 places it: the panel in the window's middle, its origin on
+// the screen's
 // pixels, and its groups and rows at their offsets in it, half points
 // included.
 void TabSwitcherView::Place() {
@@ -356,8 +357,7 @@ void TabSwitcherView::PaintPanel(gfx::Canvas* canvas) {
     canvas->DrawPath(SquircleStrokePath(ring, radius::kLg + 1, 1), line);
   }
 
-  // Each group's dot, its frame on the screen's pixels as SwiftUI snaps a
-  // view's, and its name.
+  // Each group's dot, its frame on the screen's pixels, and its name.
   const float scale = Scale();
   for (size_t group = 0; group < groups_.size(); ++group) {
     const gfx::RectF& header = headers_[group].bounds;

@@ -45,9 +45,9 @@ void PaintSystemCheckbox(gfx::Canvas& canvas,
                          const gfx::Rect& bounds,
                          const SystemCheckboxState& state);
 
-// A checkbox with its label after it, as SwiftUI's .toggleStyle(.checkbox)
-// drew one (an extension's Report abuse, ADR 0056): the system's box, then
-// the label, the two centered on one line. A click on the box or its label
+// A checkbox with its label after it, as macOS draws one (an extension's
+// Report abuse, ADR 0056; Paper 03.10): the system's box, then the label,
+// the two centered on one line. A click on the box or its label
 // toggles it, as does Space with the keyboard on it; a press shows the box
 // pressed at once. VoiceOver reads a checkbox named by its label, checked or
 // not.

@@ -58,7 +58,7 @@ struct ExtensionPrompt {
 // "extensionInstall", "extensionRemove".
 std::string_view ExtensionPromptKindName(ExtensionPrompt::Kind kind);
 
-// A prompt's card, as the Swift drew each, its content on DialogCard:
+// A prompt's card, each as its boards draw it, its content on DialogCard:
 // - Adding, Dia's dialog (Paper 03.10, 04.10; ExtensionInstallDialog): 424
 //   wide on its own surface, the card's fill rounded 29 with the
 //   foreground's 10% just inside its edge and Dia's shadow (0 24px 64px),
@@ -133,15 +133,15 @@ class ExtensionPromptView : public views::View {
   raw_ptr<views::View> accept_ = nullptr;
 };
 
-// A prompt over the window, as the Swift's extensionsOverlays showed one,
-// at once, with no transition: adding on the modal scrim, its card in the
-// window's middle; removing on nothing, its card's trailing edge on its
-// anchor's (the extension's pinned button, else the puzzle), 4 under it and
-// kept 8 from the window's leading edge, or in the window's middle where no
-// toolbar shows. A press outside the card cancels it. It holds the keys
-// while it shows, as the Swift's popup took every key but a shortcut: Esc
-// and Return come to it ahead of whatever had them (RootView's OverlayKey),
-// a shortcut still runs, and the rest goes nowhere.
+// A prompt over the window, at once, with no transition: adding on the
+// modal scrim, its card in the window's middle; removing on nothing, its
+// card's trailing edge on its anchor's (the extension's pinned button, else
+// the puzzle), 4 under it and kept 8 from the window's leading edge, or in
+// the window's middle where no toolbar shows. A press outside the card
+// cancels it. It holds the keys while it shows, every key but a shortcut,
+// as the overlay on top takes a key first (ADR 0079): Esc and Return come to
+// it ahead of whatever had them (RootView's OverlayKey), a shortcut still
+// runs, and the rest goes nowhere.
 class ExtensionPromptOverlay : public views::View {
   METADATA_HEADER(ExtensionPromptOverlay, views::View)
 

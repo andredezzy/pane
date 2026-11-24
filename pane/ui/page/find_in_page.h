@@ -31,11 +31,11 @@ namespace pane {
 // shows is Pane's bar in the window (FindBarView, ADR 0067), not Chrome's
 // child widget. Each Browser's holds its bar's state for the tab it finds
 // in, and the window's bar shows the one of the Browser it shows (Host).
-// Where the controller would bring the system's find text in, the Swift's
-// bar stayed Pane's own: it opens empty, never prefilled from the page's
-// selection, and Pane writes nothing to the system's find pasteboard; a
-// text the system hands a bar that shows is taken, so field and search
-// stay one. Closing empties it, as the Swift's did.
+// Where the controller would bring the system's find text in, the bar stays
+// Pane's own: it opens empty, never prefilled from the page's selection, and
+// Pane writes nothing to the system's find pasteboard; a text the system
+// hands a bar that shows is taken, so field and search stay one. Closing
+// empties it.
 class FindInPage : public FindBar {
  public:
   DECLARE_USER_DATA(FindInPage);
@@ -71,8 +71,8 @@ class FindInPage : public FindBar {
   // the tab's own begun (the controller's find_ui_active, which brings the
   // bar back with the tab). As Chrome's FindBarController::Show, but for its
   // search of what the field holds: empty, as the bar opens, that search
-  // unselects the page (StopFinding's kClear), which the Swift's ⌘F left
-  // as it was.
+  // unselects the page (StopFinding's kClear), which this leaves as it
+  // was.
   void Open();
   // ⌘G or ⇧⌘G with the bar closed, as Chrome's FindBarController::Show
   // (find_next): the bar opens on the tab's last search, else the profile's
@@ -80,8 +80,8 @@ class FindInPage : public FindBar {
   // finds it forward or back; with none, it opens empty, as ⌘F opens it.
   void OpenOnLastSearch(bool forward);
   // From the bar: the field's text, as typed (a search from the first
-  // match; emptied, the matches go and the page's selection stays, as the
-  // Swift's stopFinding); the next match or the previous one (Return, a
+  // match; emptied, the matches go and the page's selection stays); the next
+  // match or the previous one (Return, a
   // chevron), timed to the frame that shows its count; and close (Esc, a
   // press elsewhere).
   void Find(const std::u16string& text);

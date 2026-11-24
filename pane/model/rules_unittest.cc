@@ -48,7 +48,7 @@ TEST(AddressInputTest, Search) {
             "https://www.google.com/search?q=pane%20browser");
   EXPECT_EQ(AddressURL("a.b c").spec(),
             "https://www.google.com/search?q=a.b%20c");
-  // What a query can't hold as it is, which the Swift app sent unescaped.
+  // What a query can't hold as it is, escaped.
   EXPECT_EQ(AddressURL("c++ & rust").spec(),
             "https://www.google.com/search?q=c%2B%2B%20%26%20rust");
 }

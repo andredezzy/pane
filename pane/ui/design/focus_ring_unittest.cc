@@ -40,7 +40,7 @@ int Reach(float gap, float width) {
 
 }  // namespace
 
-// A control's ring is the system's: on the Mac the Swift's 1-point grey, on
+// A control's ring is the system's: on the Mac a 1-point grey (ring-1), on
 // Windows 2 points in the text's color (Paper 11.17 B); either way it takes
 // the system's color id, and is no wider than 2.
 TEST_F(FocusRingTest, AControlsRingIsTheSystems) {

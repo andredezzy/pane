@@ -80,14 +80,14 @@ constexpr int kPanelInset = 8;
 
 // The profile sheet's panel: 8 from the window's top, right, and bottom
 // (Paper 05.4); its ring outside it, its shadow 0 8px 40px, black at 50% in
-// both appearances (the Swift's surfaceBackground).
+// both appearances (Paper 02.5).
 constexpr int kSheetInset = 8;
 constexpr float kSheetShadowSigma = 20;
 constexpr float kSheetShadowOffset = 8;
 constexpr SkColor kSheetShadow = SkColorSetA(SK_ColorBLACK, 0x80);
 
-// Over the page while a page's dialog shows: the page takes no press, as
-// the Swift's clear shape over it took them, nor a scroll.
+// Over the page while a page's dialog shows: the page takes no press, nor a
+// scroll, as under Chrome's tab-modal dialogs (ADR 0021).
 class PageShield : public views::View {
   METADATA_HEADER(PageShield, views::View)
 
@@ -104,9 +104,9 @@ END_METADATA
 
 // The extensions menu's Esc, and Esc and Return for a page's dialog, ahead of
 // the focused view (a field of its own, the address, the sidebar's), as the
-// Swift's key monitor took them: on the Mac, Views hands a key to the focused
-// view before the FocusManager's accelerators, and the address takes Esc and
-// Return itself.
+// overlay on top takes a key first (ADR 0079): on the Mac, Views hands a key
+// to the focused view before the FocusManager's accelerators, and the
+// address takes Esc and Return itself.
 class PageDialogKeys : public ui::EventHandler {
  public:
   explicit PageDialogKeys(RootView* root) : root_(root) {}
@@ -124,8 +124,7 @@ class PageDialogKeys : public ui::EventHandler {
 
 // Under find in page's bar, or the extensions menu, while it shows, over the
 // rest of the window: a press anywhere else closes it, and reaches nothing
-// under it, nor does a scroll (the Swift's FindOverlay, and the clear shape
-// under its extensions menu, each over the window and taking the tap).
+// under it, nor does a scroll (ADR 0054, 0067).
 class FindShield : public views::View {
   METADATA_HEADER(FindShield, views::View)
 
@@ -149,8 +148,8 @@ BEGIN_METADATA(FindShield)
 END_METADATA
 
 // A page's dialog: its top at three eighths of the window, raised to leave
-// 16 under it, and never closer than 8 to the window's top (the Swift's
-// AlertPlacement).
+// 16 under it, and never closer than 8 to the window's top (Paper 04.15 to
+// 04.23).
 constexpr int kPageDialogMargin = 16;
 constexpr int kPageDialogTop = 8;
 // The extensions menu: 4 under the puzzle, and 8 from the window's leading
@@ -160,12 +159,12 @@ constexpr int kMenuMargin = 8;
 
 }  // namespace
 
-// The profile sheet over the window (the Swift's, ADR 0120): its scrim over
+// The profile sheet over the window (ADR 0120, Paper 05.4): its scrim over
 // the whole window, a press on which closes it, and its panel at the
 // window's right on its ring and shadow, one DialogCard. It comes as the
 // scrim fades in and the panel slides in from the window's right as it fades
-// in (Motion.sheet, SwiftUI's move from the trailing edge by the width of
-// what it moves, the window's), and goes the same way; each on the
+// in (Motion.sheet, from the trailing edge by the window's width), and goes
+// the same way; each on the
 // compositor's own animation. While it shows, Esc cancels and Return
 // creates, whatever in it has the keys.
 class ProfileSheetOverlay : public views::View {
@@ -707,11 +706,10 @@ void RootView::UpdateDevTools() {
 // (NativeViewHostMac has none to round with no page attached), and none while
 // the page fills the window: the panel's, as a circle that follows the
 // squircle within a fifth of a pixel (ADR 0057), so no mask composites the
-// page each frame. All four, as the Swift's page layer rounds them, its top
-// two under the toolbar too: the user's call over Paper's square ones, and
-// 04.7 now draws them so. With DevTools docked, they fill the card and take
-// its four, and the page those of the card's it meets, as the Swift's
-// rounded host clipped both.
+// page each frame. All four, its top two under the toolbar too: the user's
+// call over Paper's square ones, and 04.7 now draws them so. With DevTools
+// docked, they fill the card and take its four, and the page those of the
+// card's it meets (Paper 04.26).
 void RootView::RoundPage() {
   // Only as they change: each layout reaches here.
   const auto round = [](views::WebView* view,
@@ -1264,7 +1262,7 @@ void RootView::ShowFind(const FindBarView::State& state) {
 }
 
 // While the browser page shows: Settings, which takes the page's place,
-// hides it, as the Swift drew it only over the browser page.
+// hides it, find showing over the browser page alone (Paper 04.3).
 void RootView::ShowFindPlaces() {
   const bool shown =
       find_bar_->state().visible && shows_.content != Content::kSettings;
@@ -1478,8 +1476,8 @@ void RootView::HideExtensionPrompt() {
     return;
   }
   ExtensionPromptOverlay* overlay = std::exchange(extension_prompt_, nullptr);
-  // Gone at once, as the Swift's went; it leaves the window once the press
-  // that answered it is through.
+  // Gone at once; it leaves the window once the press that answered it is
+  // through.
   overlay->SetVisible(false);
   overlay->SetCanProcessEventsWithinSubtree(false);
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -1516,7 +1514,7 @@ gfx::Rect RootView::ExtensionPromptBounds() const {
 
 // The removal's popup hangs from its extension's pinned button, else the
 // puzzle, while the toolbar shows; else it, as adding does, sits in the
-// window's middle (the Swift's extensionsOverlays).
+// window's middle (Paper 03.10, 04.10, 04.11).
 void RootView::PlaceExtensionPrompt() {
   if (!extension_prompt_) {
     return;
@@ -1545,7 +1543,7 @@ ExtensionMoreMenuView* RootView::extension_more_menu() {
 
 // The menu's trailing edge on the puzzle's, 4 under it, kept 8 from the
 // window's leading edge; the more menu beside it, over its edge by 10, level
-// with its extension's row (the Swift's extensionsOverlays).
+// with its extension's row (Paper 04.6, 04.9).
 void RootView::PlaceExtensionsMenu() {
   extensions_shield_->SetBoundsRect(GetLocalBounds());
   if (!extensions_card_->GetVisible()) {
@@ -1607,7 +1605,7 @@ void RootView::OnThemeChanged() {
 
 bool RootView::IsDragArea(const gfx::Point& point) {
   // The PIN screen's panel moves the window around its controls, and so do
-  // the gutters around it, as the Swift's WindowDragArea under it did.
+  // the gutters around it, as the window's background does (ADR 0036).
   if (lock_->showing()) {
     gfx::Point in_lock = point;
     views::View::ConvertPointToTarget(this, lock_, &in_lock);

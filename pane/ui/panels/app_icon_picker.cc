@@ -62,9 +62,9 @@ constexpr float kBodyRadius = kBody * 0.257f;
 constexpr float kRingOut = 4;
 constexpr float kRingWidth = 2;
 
-// A rounded rectangle with the system's continuous corners (SwiftUI's
-// RoundedRectangle(style: .continuous), Core Animation's
-// kCACornerCurveContinuous): each corner three cubics that ease from the
+// A rounded rectangle with the system's continuous corners (Core
+// Animation's kCACornerCurveContinuous): each corner three cubics that ease
+// from the
 // straight edge into the curve, starting 1.528665 of the radius from the
 // corner, as the iOS 7 icon's are drawn (PaintCode's measure of
 // UIBezierPath's).
@@ -196,8 +196,8 @@ class AppIconPicker::Tile : public views::Button {
     if (!selected_ || !colors) {
       return;
     }
-    // Over the icon, so its shadow leaves the ring even; drawn as SwiftUI's
-    // strokeBorder draws it, inside its frame.
+    // Over the icon, so its shadow leaves the ring even; drawn inside its
+    // frame, as Paper's borders are.
     const float side = kBody + 2 * kRingOut;
     gfx::RectF ring(icon.CenterPoint().x() - side / 2,
                     icon.CenterPoint().y() - side / 2, side, side);

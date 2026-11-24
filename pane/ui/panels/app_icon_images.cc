@@ -32,7 +32,7 @@ constexpr float kScales[] = {1, 2};
 constexpr int kSizes[] = {AppIconImages::kRowSize, AppIconImages::kTileSize};
 
 // `bitmap` at `size` points, at each scale, with a filter as fine as Core
-// Graphics' own, as the Swift's drew it at the size shown.
+// Graphics' own.
 gfx::ImageSkia Resized(const SkBitmap& bitmap, int size) {
   gfx::ImageSkia image;
   for (const float scale : kScales) {

@@ -13,7 +13,7 @@ namespace pane {
 // scripts/package.sh writes, and on Windows the pane-version file beside
 // chrome.dll, which scripts/package-win.sh writes. What the update check
 // compares the latest release against, and About Pane shows. A build that
-// isn't packaged carries none and reads 0.0.0, the Swift app's fallback.
+// isn't packaged carries none and reads 0.0.0.
 std::string PaneVersion();
 
 // The platform's half: the version the package carries, if it carries one.

@@ -86,7 +86,7 @@ constexpr char16_t kLockedName[] = u"Pane is locked";
 constexpr TextStyle kMessage{13, weight::kLight, 20};
 
 // Continue: its title alone, 60%, 80% under the pointer or pressed, fading
-// as the keys do (the Swift's HintButtonStyle).
+// as the keys do (Paper 03.6).
 ControlLook ContinueLook() {
   ControlLook look(ControlShape::Capsule());
   look.tint = kPaneColorPinHint;
@@ -100,7 +100,7 @@ constexpr ButtonSize kChoiceSize{24, 8, 8, kMessage};
 constexpr int kChoiceOverhang = (kChoiceSize.height - kMessage.line_height) / 2;
 
 // The back arrow: 30%, 60% under the pointer, the press's fill under it, no
-// hover fill (the Swift's .icon(size: 20, tint:, hoverTint:, fill: nil)).
+// hover fill (Paper 03.6).
 ControlLook BackLook() {
   ControlLook look(ControlShape::Circle());
   look.tint = kPaneColorPinQuiet;
@@ -253,7 +253,7 @@ class LockScreenView::PinContent : public views::View {
     attempts_->SetID(kViewIdLockScreenAttempts);
     // The panel holds the keys, so its text is read only exposed: the step's
     // title, the dots (PinDots), the hint, the error, and the attempts left,
-    // as the Swift's PIN screen read them.
+    // as ADR 0071 has them read.
     for (views::Label* text :
          {title_.get(), hint_.get(), error_.get(), attempts_.get()}) {
       ExposeToScreenReaders(*text);
@@ -667,7 +667,7 @@ void LockScreenView::ShowContent(bool animate) {
     out->SetVisible(false);
     return;
   }
-  // The two crossfade, as SwiftUI's default transition did.
+  // The two crossfade (Paper 07.5).
   if (!in->GetVisible()) {
     in->layer()->SetOpacity(0);
     in->SetVisible(true);
@@ -723,7 +723,7 @@ void LockScreenView::TakeFocus() {
   }
 }
 
-// Every key but Quit (the Swift's KeyRouting.pinScreen): Esc goes back,
+// Every key but Quit (ADR 0019): Esc goes back,
 // Return continues, Delete takes a digit back, and what a key types without
 // ⌘, ⌃, or ⌥ is a digit, or nothing.
 bool LockScreenView::PinKey(const ui::KeyEvent& event) {
@@ -800,7 +800,7 @@ void LockScreenView::Layout(PassKey) {
 
   // In the panel: the back arrow in the middle of its left column, the
   // middle column's content in the middle of the panel, to the fraction of a
-  // point, as SwiftUI centers it, and the update 24 from its bottom.
+  // point, as Paper centers it (07.1), and the update 24 from its bottom.
   const float scale = ScaleOf(GetWidget());
   back_->SetBounds((kSide - kBackSize) / 2, (panel.height() - kBackSize) / 2,
                    kBackSize, kBackSize);

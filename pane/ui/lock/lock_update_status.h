@@ -37,7 +37,7 @@ class LockUpdateStatus : public views::View {
     std::u16string label;
     bool downloading = false;
     double progress = 0;
-    // The time left, as the Swift wrote it ("~2min"), once known.
+    // The time left, as Paper 03.6 writes it ("~2min"), once known.
     std::u16string eta;
     // The action's title, and the view id the Swift named it by; none while
     // it downloads.

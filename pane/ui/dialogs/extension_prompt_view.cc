@@ -72,8 +72,8 @@ constexpr int kRemoveSpacing = 20;
 constexpr int kReportAbuseTop = 4;
 constexpr int kRemoveButtonsTop = 12;
 
-// `image` drawn at `size` points, resampled as SwiftUI's .high interpolation
-// did; empty stays empty.
+// `image` drawn at `size` points, resampled at high quality; empty stays
+// empty.
 gfx::ImageSkia Resized(const gfx::ImageSkia& image, int size) {
   return image.isNull() ? image
                         : gfx::ImageSkiaOperations::CreateResizedImage(
@@ -97,7 +97,7 @@ std::string_view ExtensionPromptKindName(ExtensionPrompt::Kind kind) {
   }
 }
 
-// The icons' row, which assistive technologies skip, as the Swift's did:
+// The icons' row, which assistive technologies skip, as it only decorates:
 // adding, Pane's, the arrow, and the extension's; removing, the extension's.
 class ExtensionPromptView::Icons : public views::View {
   METADATA_HEADER(Icons, views::View)
@@ -340,7 +340,7 @@ DialogCard::Look ExtensionPromptView::CardLook(ExtensionPrompt::Kind kind) {
     look.shadow_offset = gfx::Vector2dF(0, 24);
     look.shadow_sigma = 32;
   } else {
-    // The popovers' surface (the Swift's popoverSurface): 0 6px 20px.
+    // The popovers' surface (Paper 02.5's popover): 0 6px 20px.
     look.fill = kPaneColorPopover;
     look.padding = gfx::Insets(kRemovePadding);
     look.shadow = kPaneColorPopoverShadow;
@@ -488,7 +488,7 @@ ExtensionPromptOverlay::ExtensionPromptOverlay(
   prompt_ = view.get();
   card_ = AddChildView(std::make_unique<DialogCard>(
       ExtensionPromptView::CardLook(prompt.kind), std::move(view)));
-  // There at once, as the Swift's showed it.
+  // There at once.
   card_->Settle(true);
   focus_trap_ = std::make_unique<FocusTrap>(this);
 }

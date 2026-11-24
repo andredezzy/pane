@@ -37,8 +37,8 @@ namespace pane {
 // The popup's window's name, by which the channel tells it from Chrome's.
 inline constexpr char kActionPopupWindowName[] = "PaneActionPopup";
 
-// An action's popup (ADR 0031): the extension's page in Pane's bubble, as the
-// Swift's NSPopover showed it and Paper 04.12 draws it, which the user kept
+// An action's popup (ADR 0031): the extension's page in Pane's bubble, as
+// Paper 04.12 draws it, which the user kept
 // over Chrome's square ExtensionPopup on Paper 10.5. A window of its own over
 // Pane's, as NSPopover's was: the system's popover material (white, or #2C2C2E
 // on dark, at 96%) rounded 14 as macOS rounds a popover's corner (ADR 0057),

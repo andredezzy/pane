@@ -20,8 +20,8 @@ class TextButton;
 // would not open (ADR 0027): the Swift's SadTabView, in the content panel's
 // style, on its card. "This page crashed" at the page title's size over the
 // empty state's muted line, and an outline Reload, centered. It takes the
-// keys as the page whose place it shows would, and Return reloads, as the
-// Swift's default action did.
+// keys as the page whose place it shows would, and Return reloads, Reload
+// being its default button.
 class SadTabView : public views::View {
   METADATA_HEADER(SadTabView, views::View)
 

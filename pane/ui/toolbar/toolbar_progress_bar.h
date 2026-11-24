@@ -19,8 +19,8 @@ class ToolbarProgress;
 
 // The address field's 2-point load progress, drawn as Chrome's toolbar draws
 // it (model::ToolbarProgress, ADR 0081) in the Electron app's blue-500 to
-// blue-400, along the field's bottom edge and cut by its squircle, as the
-// Swift clipped it. Each change draws at once. While a fade or the slow mode
+// blue-400, along the field's bottom edge and cut by its squircle (Paper
+// 03.4). Each change draws at once. While a fade or the slow mode
 // runs, the compositor's frames step it; a timer wakes it for what falls due
 // between them (the slow mode after five quiet seconds, the fade after a
 // finish's 100 ms). On a layer of its own: a fade changes the layer's

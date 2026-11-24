@@ -144,7 +144,7 @@ std::optional<IconShape> ShapeOf(const Element& element) {
     }
     const auto [cx, cy, r] = *numbers;
     // SVG's circle starts at its right and runs clockwise, as Skia's does,
-    // so a dash falls where the Swift's did.
+    // so a dash falls where SVG's own does.
     shape.path = SkPath::Circle(cx, cy, r, SkPathDirection::kCW);
     const auto fill = element.attributes.find("fill");
     const auto stroke = element.attributes.find("stroke");

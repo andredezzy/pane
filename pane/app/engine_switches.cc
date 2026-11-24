@@ -131,8 +131,8 @@ void SetEngineSwitches(base::CommandLine& command_line,
   // owns that job, so Chrome's stays off. An extension's chrome.tabs.discard
   // still works, and Pane's UI follows the tab into its new WebContents.
   AddToSwitchList(command_line, "enable-features", "DisableTabDiscarding");
-  // Pane's own views raster on the CPU, in the browser, as AppKit drew the
-  // Swift app's and as pane/ui/render.cc paints a render; pages still raster
+  // Pane's own views raster on the CPU, in the browser, as pane/ui/render.cc
+  // paints a render (ADR 0123); pages still raster
   // on the GPU. Rastered on the GPU (Skia Graphite, on Dawn), the window's
   // views brought the GPU process the pipelines a cold launch compiles before
   // its first frame, the threads that compile them, and the caches that draw
@@ -143,8 +143,8 @@ void SetEngineSwitches(base::CommandLine& command_line,
   // CoreText keeps it, not over a copy: gfx copies every table a typeface's
   // HarfBuzz face reads into the browser's heap, and the sizes and weights of
   // the system font the UI draws make many typefaces of it: at one tab 11 of
-  // them held a copy each of SF's GPOS and GDEF, 7.8 MB, where the Swift's
-  // CoreText read the font's own (ADR 0125). The tables' bytes are the same,
+  // them held a copy each of SF's GPOS and GDEF, 7.8 MB (ADR 0125). The
+  // tables' bytes are the same,
   // so the text shapes and draws the same.
   AddToSwitchList(command_line, "enable-features", "HarfBuzzZeroCopyFontTable");
 

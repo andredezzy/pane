@@ -68,7 +68,7 @@ class BrowserModel {
 
   using PersistCallback = base::RepeatingCallback<void(Save)>;
 
-  // What the views read, as SwiftUI read the Swift model's properties. Each
+  // What the views read (ADR 0077). Each
   // call tells its events once its changes are all made, in the order below.
   // An observer reads the model: it does not change it from an event, which
   // the list's reentrancy check refuses. The tabs' recent use and Reopen

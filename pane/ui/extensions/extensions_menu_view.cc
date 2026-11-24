@@ -47,8 +47,8 @@ constexpr int kHeadingInset = 6;
 // No installed extensions: 8 in.
 constexpr int kEmptyInset = 8;
 constexpr int kRule = 1;
-// A row's glyph, 16 points, its lines 1.75 of the grid, as the Swift's
-// RowIcon; an extension's letter at 10 on a tile rounded 7.
+// A row's glyph, 16 points, its lines 1.75 of the grid (Paper 03.9); an
+// extension's letter at 10 on a tile rounded 7.
 constexpr float kGlyphStroke = 1.75f;
 constexpr int kLetter = 10;
 constexpr float kLetterRadius = 7;
@@ -233,7 +233,7 @@ class ExtensionsMenuRow : public views::Button {
 
  private:
   // A press past the label part, between or beside the trailing buttons, is
-  // nobody's, as the Swift's row had only its label as a button.
+  // nobody's: the row's label alone is its button.
   void Pressed(const ui::Event& event) {
     if (event.IsLocatedEvent() &&
         event.AsLocatedEvent()->location().x() >= LabelEnd()) {
@@ -287,7 +287,7 @@ ExtensionsMenuView::Shows::~Shows() = default;
 
 // static
 DialogCard::Look ExtensionsMenuView::CardLook() {
-  // The popovers' surface (the Swift's popoverSurface): the popover's fill
+  // The popovers' surface (Paper 02.5's popover): the popover's fill
   // rounded 22, the foreground's 10% just inside its edge, and the
   // popovers' shadow, 0 6px 20px.
   DialogCard::Look look;

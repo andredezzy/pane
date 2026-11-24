@@ -113,7 +113,7 @@ TEST_F(ControlsTest, TintsTurnWithTheHover) {
             colors_.GetColor(kPaneColorMutedForeground));
 }
 
-// The looks' disabled opacities are the Swift's: 50% for a button, 40% for
+// The looks' disabled opacities are Paper 03.7's: 50% for a button, 40% for
 // an icon button, and none of its own for a row.
 TEST_F(ControlsTest, DisabledOpacitiesAreTheSwifts) {
   EXPECT_FLOAT_EQ(ButtonLook(ButtonVariant::kGhost).disabled_opacity, 0.5f);
@@ -145,7 +145,7 @@ TEST_F(ControlsTest, AlertButtonsPressAndNeverLight) {
             colors_.GetColor(kPaneColorAlertText));
 }
 
-// Aside's popups' buttons (the Swift's .popup(isPrimary:)): the primary and
+// Aside's popups' buttons (Paper 03.10): the primary and
 // the secondary, each rounded 15, Cancel's border the foreground's 8% just
 // inside its edge; neither lights or presses otherwise than its variant.
 TEST_F(ControlsTest, PopupButtonsAreThePrimaryAndABorderedSecondary) {

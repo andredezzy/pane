@@ -26,7 +26,7 @@ class BrowserModel;
 }
 
 // Runs the sleep scheduler over the open profiles (CONTEXT.md: Sleep,
-// Unload, Trim, Keep loaded; ADR 0041), as the Swift's SleepController did: a
+// Unload, Trim, Keep loaded; ADR 0041): a
 // timer ticks it every minute, PANE_TIME_SCALE times faster in a scenario's
 // run, and the selection moves its clocks. A tab sleeps as Unload releases
 // it: its page goes and its tab stays, dimmed, until selecting it loads its

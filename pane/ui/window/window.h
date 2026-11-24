@@ -276,8 +276,7 @@ class Window : public WindowHost::Delegate,
   void OnViewBoundsChanged(views::View* observed_view) override;
 
   // views::WidgetObserver:
-  // The window giving up the keys closes the extensions menu, as the Swift's
-  // closed when its window resigned key.
+  // The window giving up the keys closes the extensions menu (ADR 0054).
   void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
   void OnWidgetShowStateChanged(views::Widget* widget) override;
   void OnWidgetDestroying(views::Widget* widget) override;
@@ -294,7 +293,7 @@ class Window : public WindowHost::Delegate,
   // Whether the key stops here.
   bool SwitcherEscape(bool pressed, int key_code);
   // Ctrl let go while the switcher shows: the tab it shows selected comes
-  // forward, as the Swift's key monitor had it. Heard from the frame, in the
+  // forward (Paper 04.4). Heard from the frame, in the
   // order the keys came, and from Views: never from a page, whose own key
   // events reach the window late (a key-up from before the switcher showed
   // would arrive after it), and none at all after a key the window took

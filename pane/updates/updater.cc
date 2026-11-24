@@ -528,7 +528,7 @@ void Updater::Downloaded(model::AvailableUpdate update,
     Notify();
     return;
   }
-  // The dmg under its own name, unescaped, as the Swift's lastPathComponent
+  // The dmg under its own name, unescaped:
   // read it: one file's, which the check made sure of
   // (model::IsTrustedDownload), and never a path.
   const base::FilePath destination = config_.downloads.Append(

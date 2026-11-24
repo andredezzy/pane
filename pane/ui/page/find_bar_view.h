@@ -34,7 +34,7 @@ class SelectionFollowsWindow;
 // the chevrons, 4 apart, and close, each in a 32-point circle, the
 // chevrons off while there is nothing to step to. Typing finds as it goes,
 // Return goes to the next match and Shift-Return to the previous, and Esc
-// closes: the field's keys, as the Swift's onSubmit and onExitCommand.
+// closes: the field's keys (ADR 0067).
 class FindBarView : public views::View, public views::TextfieldController {
   METADATA_HEADER(FindBarView, views::View)
 
@@ -42,7 +42,7 @@ class FindBarView : public views::View, public views::TextfieldController {
   static constexpr int kWidth = 357;
   static constexpr int kHeight = 54;
   // Where it sits: its top 64 points down the window, its right edge 24 in
-  // from the window's (the Swift's FindOverlay).
+  // from the window's (Paper 04.3).
   static constexpr int kTop = 64;
   static constexpr int kRightInset = 24;
 
@@ -84,7 +84,7 @@ class FindBarView : public views::View, public views::TextfieldController {
   void SetState(const State& state);
   const State& state() const { return state_; }
   // The field takes the keys, all of its text selected, unless it has them
-  // already (an NSTextField made first responder, as the Swift's ⌘F did).
+  // already (as an NSTextField made first responder selects all).
   void FocusField();
   // `text` in the field as typed over what it held, its caret at its end,
   // and found as typing finds it (the channel's stand-in for the keys).

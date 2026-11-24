@@ -141,7 +141,7 @@ enum PaneColorIds : ui::ColorId {
   kPaneColorAlertDefaultButton,
   kPaneColorAlertShadow,
   // The default button's title, white in both, and a button's press, black
-  // at 12% over its fill (the Swift's DialogButtonStyle).
+  // at 12% over its fill.
   kPaneColorAlertDefaultText,
   kPaneColorAlertPress,
   // The find bar's shadow, black at 25%, 40% on dark, and its hairline ring,
@@ -159,7 +159,7 @@ enum PaneColorIds : ui::ColorId {
   kPaneColorActionPopupEdge,
   kPaneColorActionPopupCanvas,
   // A pinned action's badge, where the extension set no color of its own:
-  // the system's red under white text, as the Swift meant them (ADR 0054).
+  // the system's red under white text, as Chrome draws it (ADR 0054).
   kPaneColorBadgeDefault,
   kPaneColorBadgeDefaultText,
   // The extensions menu's pin and more under the pointer: the foreground at
@@ -168,7 +168,7 @@ enum PaneColorIds : ui::ColorId {
   // The PIN screen's words (Paper 07): a step's title, the foreground at 50%;
   // a quiet line (Enter at least 4 digits, the attempts left) and the back
   // arrow at rest, at 30%; Continue at rest and the back arrow lit, at 60%;
-  // Continue lit, at 80% (the Swift's LockScreenView).
+  // Continue lit, at 80% (Paper 03.6).
   kPaneColorPinTitle,
   kPaneColorPinQuiet,
   kPaneColorPinHint,

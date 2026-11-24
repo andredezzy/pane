@@ -40,7 +40,7 @@ namespace pane {
 
 namespace {
 
-// A new window's size, as the Swift app's (ADR 0036).
+// A new window's size (Paper 02.6).
 constexpr gfx::Size kWindowSize(1280, 800);
 
 }  // namespace
@@ -457,8 +457,8 @@ void Window::FollowPage() {
   }
 }
 
-// The window leaving the front closes the extensions menu, as the Swift's
-// closed when its window resigned key, and the tab switcher, choosing
+// The window leaving the front closes the extensions menu (ADR 0054), and
+// the tab switcher, choosing
 // nothing: Ctrl's release, which chooses its tab, then goes to what took the
 // front (Windows' Start takes Ctrl+Esc), and the switcher would stay up.
 void Window::OnWidgetActivationChanged(views::Widget* widget, bool active) {
@@ -526,8 +526,8 @@ void Window::FocusFind(FindInPage* find) {
   }
 }
 
-// The bar closed: the page takes the keys back, as the Swift's closeFind
-// gave them, unless they went elsewhere meanwhile.
+// The bar closed: the page takes the keys back, as Chrome's find bar gives
+// them back, unless they went elsewhere meanwhile.
 void Window::FindClosed(FindInPage* find) {
   if (!root_ || find != ShownFind()) {
     return;

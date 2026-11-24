@@ -65,7 +65,7 @@ void AppendAscii(String& argument, std::string_view ascii) {
   argument.append(ascii.begin(), ascii.end());
 }
 
-// The pids the wiped instance's switch names, read as the Swift read them:
+// The pids the wiped instance's switch names:
 // the first argument it starts, wherever it is (base::CommandLine stops at
 // "--"), and what is no number goes. nullopt without one.
 std::optional<std::vector<base::ProcessId>> WipedProcesses(

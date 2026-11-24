@@ -110,8 +110,7 @@ std::vector<InstalledExtension> InstalledExtensions(Profile* profile,
     }
   }
 
-  // By name, case aside, as the locale sorts them (the Swift's
-  // localizedCaseInsensitiveCompare).
+  // By name, case aside, as the locale sorts them.
   UErrorCode status = U_ZERO_ERROR;
   const std::unique_ptr<icu::Collator> collator(
       icu::Collator::createInstance(status));

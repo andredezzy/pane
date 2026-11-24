@@ -24,7 +24,7 @@ namespace pane {
 // an edge with nothing visible to mark it (DESIGN.md › Scroll edges): an edge
 // that a rule, a header, or a footer bounds ends hard, and never takes both.
 // The fades are two overlays in the color of what is behind the list, at
-// 1 − share² of it from the edge in (the Swift's mask, inverted, at its five
+// 1 − share² of it from the edge in (Paper 03.11's fade, inverted, at five
 // stops), not a mask, which would make a render surface of the list.
 class FadingScrollView : public views::View, public views::ViewObserver {
   METADATA_HEADER(FadingScrollView, views::View)

@@ -277,7 +277,7 @@ void UpdatePill::Layout(PassKey) {
   const float text_width =
       std::min(gfx::GetStringWidthF(label_->GetText(), label_->font_list()),
                static_cast<float>(label_->width()));
-  // SwiftUI rounds a text's width up to the pixel.
+  // The text's width, rounded up to the pixel.
   const float bar_x = kTextX + std::ceil(text_width * scale) / scale + kBarGap;
   const int bar_left = static_cast<int>(std::floor(bar_x));
   const int bar_end =

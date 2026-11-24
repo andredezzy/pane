@@ -47,10 +47,10 @@ class ControlShape {
 
   // The shape filling `bounds`.
   SkPath PathIn(const gfx::RectF& bounds) const;
-  // Its line `width` wide just inside the edge (SwiftUI's strokeBorder).
+  // Its line `width` wide just inside the edge, as Paper's borders are.
   SkPath StrokePathIn(const gfx::RectF& bounds, float width) const;
   // The same kind of shape `outset` larger all round: a squircle's radius
-  // grows by as much, as the Swift's 1-point rings take (ADR 0057).
+  // grows by as much, as a ring's does (ADR 0057, DESIGN.md › Shape).
   ControlShape Outset(float outset) const;
 
   bool is_squircle() const { return kind_ == Kind::kSquircle; }
@@ -98,7 +98,7 @@ struct ControlLook {
   bool strong_fill = false;
 };
 
-// packages/ui's Button variants, as the Swift drew them; a page's dialog's,
+// packages/ui's Button variants, as Paper 03.7 draws them; a page's dialog's,
 // as macOS draws an alert's (DialogButtonStyle): capsules, gray, or blue for
 // the default, a press darkening them at once, and no hover; and Aside's
 // popups' (the Swift's .popup(isPrimary:)): the primary, and Cancel on the
@@ -131,7 +131,7 @@ ControlLook RowLook(bool selected, bool tints_on_hover = true);
 // A color `share` of the way from `from` to `to`, by its components.
 SkColor Mix(SkColor from, SkColor to, double share);
 
-// A control's states, as the Swift's buttons show them: the hover fades in
+// A control's states (Paper 03.7, DESIGN.md › Motion): the hover fades in
 // and out with Motion.hover; a press shows at once and fades as it lets go,
 // on the same curve; a disabled control shows neither and, as a whole, dims
 // to its look's opacity on a layer of its own, so its fill and title don't
@@ -161,7 +161,7 @@ class ControlHighlight {
   // hover returns on the drop's curve.
   void SetDragged(bool dragged);
   // A press that fades in as well as out, on the hover's curve, as the PIN
-  // screen's keys fill (the Swift's DigitKey animated its press both ways).
+  // screen's keys fill.
   void SetPressFadesIn(bool fades_in) { press_fades_in_ = fades_in; }
   // The ring shown while the control has the keyboard.
   FocusRing* ring() { return ring_; }

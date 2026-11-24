@@ -12,7 +12,7 @@
 namespace pane {
 
 // The content panel's card on its shadow, in its ring, under everything else
-// the window shows (shadow-panel, Elevation.swift). What it paints is four
+// the window shows (shadow-panel, Paper 02.5). What it paints is four
 // bands along the card's edge, each a layer of its own no bigger than the
 // edge's shadow and corners, each painting the whole frame clipped to
 // itself, so its pixels are the ones a single painting would make; the
@@ -21,8 +21,8 @@ namespace pane {
 // wherever it draws a path, so the card painted on the window's layer kept
 // tiles the size of the window in the GPU process (ADR 0073).
 //
-// The PIN screen's panel is the same card over the window (the Swift's
-// LockScreenView took the panel's surfaceBackground): `on_window` false, its
+// The PIN screen's panel is the same card over the window (Paper 07.1):
+// `on_window` false, its
 // bands paint the card's ring and shadow alone, over what the window shows
 // beside it.
 class PanelFrame : public views::View {

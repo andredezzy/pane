@@ -23,9 +23,10 @@ class Label;
 
 namespace pane {
 
-// SwiftUI's weights, as Chromium's Mac fonts map them (platform_font_mac.mm):
-// SwiftUI's .thin is gfx's EXTRA_LIGHT (NSFontWeightThin), and gfx's THIN is
-// .ultraLight.
+// The weights Pane's text takes, as Chromium's Mac fonts map them
+// (platform_font_mac.mm): kThin, Paper's extralight (200, the PIN's keys), is
+// gfx's EXTRA_LIGHT (NSFontWeightThin), and gfx's THIN is the system's
+// UltraLight.
 namespace weight {
 inline constexpr gfx::Font::Weight kThin = gfx::Font::Weight::EXTRA_LIGHT;
 inline constexpr gfx::Font::Weight kLight = gfx::Font::Weight::LIGHT;
@@ -35,10 +36,9 @@ inline constexpr gfx::Font::Weight kSemibold = gfx::Font::Weight::SEMIBOLD;
 inline constexpr gfx::Font::Weight kBold = gfx::Font::Weight::BOLD;
 }  // namespace weight
 
-// A run of Pane's text, as the Swift app sets one: SwiftUI's
-// .system(size:weight:) in a CSS line box (Labels.swift's lineBox: text-xs is
-// a 16-point line, text-sm a 20, leading-none the size itself), the text
-// centered in it.
+// A run of Pane's text, as Paper sets one: the system font at a size and
+// weight in a CSS line box (Tailwind's: text-xs is a 16-point line, text-sm
+// a 20, leading-none the size itself), the text centered in it.
 struct TextStyle {
   int size = 13;
   gfx::Font::Weight weight = weight::kRegular;
@@ -61,7 +61,7 @@ inline constexpr TextStyle kButtonPopup{13, weight::kMedium, 18};
 inline constexpr TextStyle kField{14, weight::kRegular, 20};
 // A menu trigger's value: 13.
 inline constexpr TextStyle kMenuValue{13, weight::kRegular, 18};
-// A menu's row of Pane's own, 13 on SwiftUI's own line for it, 16 (the
+// A menu's row of Pane's own, 13 on a 16-point line (Paper 03.9, the
 // extensions menus').
 inline constexpr TextStyle kMenuRow{13, weight::kRegular, 16};
 // A section's title over its card, 13 on 18 (Settings' groups, the profile
@@ -73,8 +73,8 @@ inline constexpr TextStyle kRowTitle{13, weight::kRegular, 18};
 inline constexpr TextStyle kRowDescription{12, weight::kRegular, 16};
 }  // namespace text
 
-// The system font at `size` points and `weight`, as SwiftUI's .system: SF on
-// the Mac, the platform's UI font elsewhere. Each is made once.
+// The system font at `size` points and `weight`: SF on the Mac, the
+// platform's UI font elsewhere (Paper 02.3's system stack). Each is made once.
 const gfx::FontList& SystemFont(int size, gfx::Font::Weight weight);
 
 // Each system's, which SystemFont makes once: the Mac's SF, its optical sizes
@@ -84,8 +84,8 @@ const gfx::FontList& SystemFont(int size, gfx::Font::Weight weight);
 gfx::FontList PlatformSystemFont(int size, gfx::Font::Weight weight);
 
 // Whether Pane's labels take the system's subpixel text where it sits on an
-// opaque ground: never on the Mac, where the Swift's was grayscale (ADR
-// 0060); on Windows, ClearType, as the user chose (Paper 11.8, text_win.cc).
+// opaque ground: never on the Mac, by the user's call (ADR 0060); on
+// Windows, ClearType, as the user chose (Paper 11.8, text_win.cc).
 bool LabelsTakeClearType();
 
 // The opaque color under `label`'s text, what its surface and the fills
@@ -99,9 +99,9 @@ void SetLabelGround(views::Label& label, SkColor ground);
 
 // Sets `label` in Pane's text: the style's font and line box, `color` (a
 // ui::ColorVariant, so a Theme change resolves it again), taken as it is
-// rather than shifted for contrast, and grayscale rather than subpixel, as
-// the Swift's was. Skia still smooths it on the Mac, heavier than the
-// Swift's text, as the user accepted (ADR 0060).
+// rather than shifted for contrast, and grayscale rather than subpixel (ADR
+// 0060). Skia still smooths it on the Mac, 10 to 18% heavier than text drawn
+// unsmoothed, as the user accepted (ADR 0060).
 void StyleLabel(views::Label& label,
                 const TextStyle& style,
                 ui::ColorVariant color);
@@ -119,7 +119,7 @@ void ExposeToScreenReaders(views::View& view);
 
 // A count in Pane's text whose digits each sit in a cell as wide as the
 // font's figures (its zero), centered in it, so it holds still as it counts,
-// as SwiftUI's .monospacedDigit() held it: the find bar's match count, the one
+// as tabular digits would: the find bar's match count, the one
 // text that keeps its tabular digits (Paper 10.6, option 1). Views shapes
 // with HarfBuzz's default features alone (render_text_harfbuzz.cc), so the
 // cells are Pane's, with no ui/gfx edit; what isn't a digit takes its own

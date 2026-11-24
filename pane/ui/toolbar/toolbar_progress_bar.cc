@@ -114,8 +114,8 @@ void ToolbarProgressBar::OnCompositingShuttingDown(ui::Compositor* compositor) {
   StopFrames();
 }
 
-// The fill, the blue-500 to blue-400 gradient across its own width, as the
-// Swift's CAGradientLayer spanned its frame; the shimmer over it; both cut
+// The fill, the blue-500 to blue-400 gradient across its own width (Paper
+// 03.4's loading); the shimmer over it; both cut
 // by the field's squircle, whose bottom edge the bar runs along.
 void ToolbarProgressBar::OnPaint(gfx::Canvas* canvas) {
   const ui::ColorProvider* colors = GetColorProvider();

@@ -159,7 +159,7 @@ class DataVault {
   // whether it may open, false once a lock came, and always runs, a lock or
   // not, since the lock waits for the context to settle. Called once
   // WhenAttached said true, and once per open: each call marks an open
-  // started for the safety copy, as the Swift's ProfileContexts.with did.
+  // started for the safety copy.
   void Prepare(const std::string& profile_id,
                bool saves_history,
                base::OnceCallback<void(bool)> done);
@@ -197,7 +197,7 @@ class DataVault {
   // it had left the image attached). On the main thread, where it blocks:
   // it waits on a condition variable, sleeps between tries, and runs hdiutil,
   // which the browser's UI thread disallows (DisallowUnresponsiveTasks), so
-  // its caller allows them, as the Swift ran it after the engine returned.
+  // its caller allows them.
   void EngineDidStop();
 
  private:

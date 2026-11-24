@@ -23,7 +23,7 @@ GURL AddressURL(std::string_view input) {
     return GURL(base::StrCat({"https://", text}));
   }
   // Every character a query can't hold as it is escaped, "&" and "+" among
-  // them, which the Swift app's URLComponents left as they were.
+  // them.
   return GURL(base::StrCat({"https://www.google.com/search?q=",
                             base::EscapeQueryParamValue(text, false)}));
 }

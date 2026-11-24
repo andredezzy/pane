@@ -53,8 +53,7 @@ class PaneMark : public views::View {
       return;
     }
     const float unit = width() / 24.0f;
-    // SVG's rect, whose corners are circles: Paper's, and within a fifth of
-    // a pixel of SwiftUI's continuous ones at this radius (ADR 0057).
+    // SVG's rect, whose corners are circles: Paper's (ADR 0057).
     SkPathBuilder mark;
     mark.addRRect(SkRRect::MakeRectXY(
         SkRect::MakeXYWH(3 * unit, 3 * unit, 18 * unit, 18 * unit), 4 * unit,

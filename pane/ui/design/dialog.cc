@@ -340,9 +340,9 @@ ModalDialog::ModalDialog(int width,
                          Keys keys)
     : width_(width), callbacks_(std::move(callbacks)), keys_(keys) {
   // A layer that draws nothing, over what it covers. The scrim and the card
-  // fade apart, each on a layer of its own, as the Swift's modal() faded its
-  // scrim and its content: faded together, they took the compositor a pass
-  // the window's size at each frame of the entrance (ADR 0123).
+  // fade apart, each on a layer of its own: faded together, they took the
+  // compositor a pass the window's size at each frame of the entrance (ADR
+  // 0123).
   SetPaintToLayer(ui::LAYER_NOT_DRAWN);
   // Unseen until it comes in, and made ahead of it.
   SetVisible(false);
@@ -417,7 +417,7 @@ void ModalDialog::MoveFocus(bool reverse) {
 
 bool ModalDialog::Place() {
   scrim_->SetBoundsRect(GetLocalBounds());
-  // In the middle, as SwiftUI centers it: to the half point at 2×.
+  // In the middle, as Paper centers it: to the half point at 2×.
   const gfx::SizeF size = card_->SizeFor(width_);
   return card_->Place(gfx::RectF((width() - size.width()) / 2,
                                  (height() - size.height()) / 2, size.width(),
@@ -530,7 +530,7 @@ bool ModalDialog::OnKeyPressed(const ui::KeyEvent& event) {
   if (!takes_every_key()) {
     return false;
   }
-  // Esc, whatever modifier is down, as the Swift's KeyRouting matched it;
+  // Esc, whatever modifier is down;
   // Return, or the keypad's Enter; Tab round its own controls. Any other key
   // stops here.
   if (event.key_code() == ui::VKEY_ESCAPE) {

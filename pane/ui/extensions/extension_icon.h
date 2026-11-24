@@ -22,7 +22,7 @@ namespace pane {
 // An extension's icon filling `bounds`, or, without one, the first letter of
 // its name on gray (the Swift's ExtensionIcon and ExtensionLetter): white,
 // medium, at `letter_size` points, on Palette.letterTile rounded `radius`. An
-// icon still loading is there and blank, as the Swift showed it.
+// icon still loading is there and blank.
 void PaintExtensionIcon(gfx::Canvas& canvas,
                         const ui::ColorProvider& colors,
                         const gfx::Image& icon,
@@ -35,8 +35,8 @@ void PaintExtensionIcon(gfx::Canvas& canvas,
 // ActionButton): its text at 9 points, 2 in on each side, 12 tall, on its
 // color rounded 4 and ringed by a point of Palette.badgeRing on its edge, its
 // trailing edge on the button's and its bottom 1 above. A color the extension
-// left unset (transparent) is the Swift's default: the system's red under
-// white.
+// left unset (transparent) is Chrome's default: the system's red under white
+// (ADR 0054).
 void PaintBadge(gfx::Canvas& canvas,
                 const ui::ColorProvider& colors,
                 const std::u16string& text,

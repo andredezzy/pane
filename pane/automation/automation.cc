@@ -263,7 +263,7 @@ std::vector<double> Drag(views::Widget* widget,
 }
 
 // A cookie without its value: where it applies, and its attributes, as the
-// Swift app's channel described one.
+// channel describes one (ADR 0018).
 base::DictValue DescribeCookie(const net::CanonicalCookie& cookie) {
   std::string_view same_site = "unspecified";
   switch (cookie.SameSite()) {
@@ -733,7 +733,7 @@ void Automation::Dispatch(const std::string& name,
   // the pointer, else the pill's (Download, Restart to update, or Quit and
   // install), else Settings' button; and the pill's dismiss, under the
   // pointer too. Restart to update waits for a staged update and does
-  // nothing without one, as the Swift's did.
+  // nothing without one.
   if (name == "downloadUpdate" || name == "restartToUpdate" ||
       name == "dismissUpdate") {
     if (name == "restartToUpdate" && !app_->updater().staged()) {
@@ -1041,7 +1041,7 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // Find in page, as the Swift's channel: { text, forward } shows the bar
+  // Find in page: { text, forward } shows the bar
   // (⌘F's own path) and finds `text` as typed into its field, or, the text it
   // holds already, steps to the next match, or the previous one (Return,
   // Shift-Return).
@@ -1066,8 +1066,8 @@ void Automation::Dispatch(const std::string& name,
     } else {
       root->find_bar()->Type(query);
     }
-    // The Swift's channel found, then showed the bar: a field taking the keys
-    // then had all of its text selected.
+    // Found as the bar shows, the field takes the keys with all of its text
+    // selected, as ⌘F gives it them.
     if (opens) {
       root->find_bar()->field()->SelectAll(false);
     }
@@ -1419,7 +1419,7 @@ void Automation::Dispatch(const std::string& name,
   }
 
   // Lock after, { minutes }: a number, or null for Never, as Settings' menu
-  // sets it; the channel stands in for the menu, as the Swift's did.
+  // sets it; the channel stands in for the menu (ADR 0018).
   if (name == "setLockAfter") {
     const std::optional<int> minutes = command.FindInt("minutes");
     app_->ChangeSettings([&](model::AppSettings& settings) {
@@ -2716,8 +2716,8 @@ void Automation::Dispatch(const std::string& name,
   }
 
   // A shown extension's pinned action's right-click menu, made as a
-  // right-click makes it: the extension's own items and its site access, as
-  // the Swift's engine handed them over, and the whole menu; with `run`, the
+  // right-click makes it: the extension's own items and its site access, and
+  // the whole menu; with `run`, the
   // item of that title chosen, as a click in the system's menu chooses it.
   if (name == "extensionActionMenu") {
     const std::string* id = command.FindString("id");
@@ -2751,8 +2751,8 @@ void Automation::Dispatch(const std::string& name,
     return;
   }
 
-  // An extension's pin, its being on, and its removal, in a profile, as the
-  // Swift's channel set them in the engine: { id, profile, pinned | enabled }.
+  // An extension's pin, its being on, and its removal, in a profile, set in
+  // the engine: { id, profile, pinned | enabled }.
   if (name == "setExtensionPinned" || name == "setExtensionEnabled" ||
       name == "uninstallExtension") {
     const std::string* id = command.FindString("id");
@@ -2784,7 +2784,7 @@ void Automation::Dispatch(const std::string& name,
   }
 
   // Saved, then closed, then the volume detached: the reply comes once the
-  // save is on the disk, as the Swift app's did.
+  // save is on the disk.
   if (name == "quit") {
     app_->Quit(base::BindOnce(
         [](Reply reply) { std::move(reply).Run(base::Value(), std::string()); },

@@ -177,7 +177,7 @@ class RootView : public views::View {
   // Find in page's bar (ADR 0067): shown as `state` has it, over the window
   // at its top right, while the browser page shows, with a shield under it
   // over the rest of the window, which a press closes it from and goes
-  // nowhere else (the Swift's FindOverlay). It comes and goes at once.
+  // nowhere else (ADR 0067). It comes and goes at once.
   void ShowFind(const FindBarView::State& state);
   const FindBarView::State& find_state() const { return find_bar_->state(); }
   // Its field takes the keys, its text selected, while it shows.
@@ -188,7 +188,7 @@ class RootView : public views::View {
   gfx::Rect FindBarBounds() const;
   // The extensions menu under the toolbar's puzzle, its trailing edge on the
   // puzzle's and 4 under it, and an extension's more menu beside it, level
-  // with its row, both at once (the Swift showed them with no transition);
+  // with its row, both at once;
   // over a page's dialog and under the switcher, on a shield over the rest
   // of the window that a press closes them from and that goes nowhere else.
   void ShowExtensionsMenu(const ExtensionsMenuView::Shows& shows);
@@ -198,7 +198,7 @@ class RootView : public views::View {
   ExtensionMoreMenuView* extension_more_menu();
   // Adding or removing an extension asks over the window (ADR 0056): over a
   // page's dialog and the extensions menu, under the switcher and what shows
-  // over the whole window, at once, as the Swift's showed it. Removing hangs
+  // over the whole window, at once. Removing hangs
   // from the extension's pinned button, else the puzzle, while the toolbar
   // shows. It takes the keys while it shows, and gives them back to what had
   // them as it goes, at once.
@@ -271,7 +271,7 @@ class RootView : public views::View {
   // A page's dialog over the window (PageDialogs, ADR 0021), under the tab
   // switcher and what shows over the whole window, on the alert's card: in
   // the window's middle, its top at three eighths of the window's height,
-  // raised to fit, as the Swift's AlertPlacement put it. It fades in as it
+  // raised to fit (Paper 04.15 to 04.23). It fades in as it
   // grows from 0.97 (Motion.panel) and takes the keys; the page under it
   // takes no press, as the sidebar and the toolbar still do, as with
   // Chrome's tab-modal dialogs. Gone, it answers no more and fades as it
@@ -281,7 +281,7 @@ class RootView : public views::View {
   // The one showing, not one on its way out.
   PageDialog* page_dialog();
   // Esc or Return, ahead of what has the window's keys: the extensions menu
-  // takes Esc, its more menu first (the Swift's KeyRouting), then the page's
+  // takes Esc, its more menu first (ADR 0079), then the page's
   // dialog showing takes either, unless what shows over them (the switcher,
   // a dialog over the whole window) has the keys. Whether one took it.
   bool OverlayKey(const ui::KeyEvent& event);

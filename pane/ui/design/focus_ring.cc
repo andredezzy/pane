@@ -22,7 +22,8 @@ namespace pane {
 
 namespace {
 
-// A field's, on every system: 1 point in the ring's color, as the Swift's.
+// A field's, on every system: 1 point in the ring's color (DESIGN.md ›
+// Windows; Paper 11.17).
 constexpr FocusRingStyle kFieldStyle{1, kPaneColorRing, 0};
 
 }  // namespace

@@ -51,7 +51,7 @@ enum class Icon {
   kPuzzle,
 };
 
-// An icon's SVG elements, as Lucide writes them and the Swift app drew them.
+// An icon's SVG elements, as Lucide writes them.
 std::string_view IconElements(Icon icon);
 
 // One of an icon's shapes on its grid: stroked with round caps and joins

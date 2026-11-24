@@ -54,11 +54,11 @@ constexpr char kWebStoreDetailURL[] =
 // How soon after a click outside the popup closed it a press on its own
 // button counts as that click: the press then closes it, as a second click
 // on a toolbar button closes its popup in Chrome, rather than opening it
-// again (the Swift's NSPopover could close and open again).
+// again.
 constexpr base::TimeDelta kClickClosesWithin = base::Milliseconds(500);
 
 // The fallback where no toolbar shows the button (Settings): the window's
-// top right, as the Swift's popover pointed there.
+// top right.
 constexpr int kFallbackRight = 48;
 constexpr int kFallbackTop = 8;
 constexpr int kFallbackSize = 26;
@@ -457,7 +457,7 @@ ActionMenu* ExtensionsUi::MakeActionMenu(const std::string& extension_id) {
         }
       },
       ui, extension_id);
-  // In the profile shown, as the Swift's togglePinned: the menu goes with
+  // In the profile shown: the menu goes with
   // the profile it was made for.
   callbacks.unpin = base::BindRepeating(
       [](base::WeakPtr<ExtensionsUi> ui, std::string id) {

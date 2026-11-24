@@ -12,7 +12,8 @@
 
 namespace pane {
 
-// As SwiftUI's alert makes it (read off one, 2026-11-09): the action's button
+// As macOS draws a destructive alert (read off one, 2026-11-09): the
+// action's button
 // first, so rightmost, destructive and without Return, since a destructive
 // action is never the default; Cancel to its left, on Esc. macOS draws the
 // rest: the sheet centered on the window, 260 points wide, its text centered.

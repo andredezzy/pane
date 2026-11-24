@@ -57,9 +57,9 @@ using Bytes = std::vector<uint8_t>;
 
 constexpr int kBacklog = 64;
 // What the proxy has to take a connection in: found, reached, and signed in
-// to (the Swift's relay gave its connect as long).
+// to.
 constexpr base::TimeDelta kUpstreamTimeout = base::Seconds(15);
-// A direction's chunk, as the Swift's readSome took one.
+// A direction's chunk: at most 64 KB at a time.
 constexpr int kPipeChunk = 64 * 1024;
 // An accept that failed, as when the process is out of file descriptors,
 // is tried again a moment later rather than in a loop.

@@ -22,7 +22,7 @@ namespace pane {
 // 56, at 1× and 2×, each from macOS's own drawing of an app whose icon is
 // that window (its body and shadow on a 1024-pixel canvas, made by
 // packaging/icon/make-icons.swift). Automatic's is Night with Day over
-// its upper left half, as the Swift's DockIcon drew it. The images ship with
+// its upper left half. The images ship with
 // the app (pane/ui/panels/app_icons, in the framework's Resources on the
 // Mac), and each is read and decoded off the UI thread once asked for: the
 // Dock's at launch, the row's with it, and every tile's when Settings first
@@ -41,7 +41,7 @@ class AppIconImages {
   // The Dock's tile, the largest the Dock and the app switcher draw an app's
   // icon: AppKit draws the image it's given twice at each change, into the
   // app's icon and into the tile, which took 15.6 ms of the UI thread at
-  // the whole 1024 pixels, as the Swift's NSImage(named:) did.
+  // the whole 1024 pixels.
   static constexpr int kDockSize = 128;
 
   AppIconImages();

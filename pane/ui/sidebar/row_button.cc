@@ -82,7 +82,7 @@ void RowButton::RunContextMenu(const gfx::Point& point,
   if (!GetWidget() || !menu_model_) {
     return;
   }
-  // The row stays lit under its menu, as the Swift's did.
+  // The row stays lit under its menu (Paper 03.1, 03.2).
   SetMenuShowing(true);
   menu_runner_ = std::make_unique<views::MenuRunner>(
       menu_model_.get(), views::MenuRunner::CONTEXT_MENU,

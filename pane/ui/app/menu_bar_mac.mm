@@ -14,7 +14,7 @@ namespace {
 
 // AppKit's action for a platform command, which goes up the responder chain
 // from what has the keyboard (the field's or the page's Cut, the window's
-// Minimize, the app's Hide), as the Swift's items did; nil for the app's own.
+// Minimize, the app's Hide); nil for the app's own.
 SEL PlatformAction(pane::Command command) {
   switch (command) {
     case pane::Command::kAbout:
@@ -114,7 +114,7 @@ base::ListValue DescribeMenu(NSMenu* menu) {
                       atIndex:(size_t)index {
   if (menuItem.submenu) {
     menuItem.submenu.title = menuItem.title;
-    // AppKit lists the windows in it, as the Swift's did.
+    // AppKit lists the windows in it, as in every Mac app's Window menu.
     if ([menuItem.title isEqualToString:@"Window"]) {
       NSApp.windowsMenu = menuItem.submenu;
     }

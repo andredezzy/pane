@@ -257,8 +257,7 @@ std::optional<base::DictValue> DictionaryOf(std::string_view output) {
   return std::move(value).TakeDict();
 }
 
-// An array of dictionaries, as Swift's `as? [[String: Any]]` casts one: none
-// if any of it is something else.
+// An array of dictionaries: none if any of it is something else.
 std::optional<std::vector<const base::DictValue*>> DictionariesIn(
     const base::Value* value) {
   const base::ListValue* list = value ? value->GetIfList() : nullptr;
@@ -368,7 +367,7 @@ bool VolumeIsEncrypted(const base::FilePath& path) {
 
 // One mount's answer, which Disk Arbitration gives on its queue. The mount
 // holds a reference for the callback, so an answer later than the wait finds
-// it still there, where the Swift's, unretained, was gone.
+// it still there.
 class MountResult : public base::RefCountedThreadSafe<MountResult> {
  public:
   MountResult() = default;

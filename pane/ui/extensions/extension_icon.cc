@@ -48,7 +48,7 @@ void PaintExtensionIcon(gfx::Canvas& canvas,
                         int letter_size,
                         float radius) {
   if (!icon.IsEmpty()) {
-    // Scaled as SwiftUI's resizable image with high interpolation.
+    // Scaled at high quality.
     const gfx::ImageSkia image = icon.AsImageSkia();
     const gfx::Rect place = gfx::ToRoundedRect(bounds);
     canvas.DrawImageInt(image, 0, 0, image.width(), image.height(), place.x(),
@@ -86,7 +86,7 @@ void PaintBadge(gfx::Canvas& canvas,
   fill.setColor(OrDefault(background, colors, kPaneColorBadgeDefault));
   const SkPath shape = SquirclePath(badge, kBadgeRadius);
   canvas.DrawPath(shape, fill);
-  // On the edge, as SwiftUI's stroke draws one.
+  // On the edge, half inside it and half out.
   cc::PaintFlags ring;
   ring.setAntiAlias(true);
   ring.setStyle(cc::PaintFlags::kStroke_Style);

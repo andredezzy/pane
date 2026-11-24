@@ -127,8 +127,9 @@ TEST(SquircleTest, MatchesTheSwiftAppsSquircle) {
   }
 }
 
-// A radius larger than half the shorter side shrinks to it, as the Swift's
-// did: the profile's bar, 4 by 16 at 2, and a 28-point square asked for 29.
+// A radius larger than half the shorter side shrinks to it, as a CSS radius
+// does in Paper: the profile's bar, 4 by 16 at 2, and a 28-point square asked
+// for 29.
 TEST(SquircleTest, ShrinksTheRadiusToHalfTheShorterSide) {
   for (const auto& [rect, radius] :
        {std::pair(gfx::RectF(0, 0, 4, 16), 2.0f),
@@ -167,7 +168,7 @@ TEST(SquircleTest, TheSameSizeIsTheSameShapeAnywhere) {
 }
 
 // A border's line runs half its width inside the edge, on a radius shrunk by
-// as much, as SwiftUI's strokeBorder draws it: the field's 1-point border at
+// as much, as Paper's borders are: the field's 1-point border at
 // 11 is the squircle of 10.5 inset by half a point.
 TEST(SquircleTest, AStrokeRunsInsideTheEdge) {
   const gfx::RectF field(0, 0, 200, 36);

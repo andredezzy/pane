@@ -101,7 +101,7 @@ Menu MenuOf(std::u16string title, std::vector<MenuItem> items) {
 // The Swift's MainMenu, item for item: its titles, its keys (an uppercase
 // key there is Shift's: ⇧⌘T, ⇧⌘Z, ⇧⌘I), its separators; and what the user
 // added from Chrome's: Find Next and Find Previous (⌘G, ⇧⌘G), and ⌥⌘I for
-// Developer Tools beside the Swift's ⇧⌘I. On Windows, Ctrl where the Mac
+// Developer Tools beside ⇧⌘I. On Windows, Ctrl where the Mac
 // takes ⌘, and Chrome's own Windows keys where Ctrl alone would collide
 // (⌃⌘F and ⌃⌘L are Ctrl+F's and Ctrl+L's) or where Windows has its own,
 // as Chrome's accelerator table gives them there: F11 for Full Screen,
@@ -260,7 +260,7 @@ std::vector<Menu> MakeMenus(KeySystem system) {
       Separator(),
   };
   // ⌘1 to ⌘8 by place; ⌘9 the last, as Chrome's and Safari's (the user's
-  // call, where the Swift's was the ninth).
+  // call, 2026-11-10).
   for (int number = 1; number <= 9; ++number) {
     tabs.push_back(b.Item(
         static_cast<Command>(static_cast<int>(Command::kTab1) + number - 1),

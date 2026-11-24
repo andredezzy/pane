@@ -17,8 +17,8 @@ class WebContents;
 
 namespace pane {
 
-// A site's permission request in the window's own dialog (ADR 0021), as the
-// Swift asked it: "<host> wants to", a line for each permission, and Allow,
+// A site's permission request in the window's own dialog (ADR 0021, Paper
+// 04.20): "<host> wants to", a line for each permission, and Allow,
 // Allow This Time, and Don't Allow, stacked; Esc dismisses it, so the site
 // may ask again. Chrome's PermissionRequestManager owns it, and destroys it
 // once the request is decided, or to make it again.

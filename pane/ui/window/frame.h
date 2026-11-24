@@ -26,10 +26,10 @@ namespace pane {
 // bar, the traffic lights at (12, 12) (ADR 0036); on Windows, the caption
 // buttons. Owned by `widget`. While `takes_every_key` answers true (Quit
 // Pane? shows), a key of the menu bar's goes nowhere unless it is Quit's: on
-// the Mac, the window drops it before the menu bar sees it, as the Swift's
-// key monitor swallowed it, so the overlay keeps Esc and Return.
+// the Mac, the window drops it before the menu bar sees it, so the overlay
+// keeps Esc and Return (ADR 0079).
 // `control_changed` hears Ctrl go down or up, ahead of the page and Pane's
-// views, as the Swift's key monitor did: the switcher's commit on Ctrl's
+// views (ADR 0079): the switcher's commit on Ctrl's
 // release, which a page with the keys never passes on after a key the
 // window took (Ctrl-Tab: RenderWidgetHostImpl drops the key-ups that follow
 // a key its delegate handled).

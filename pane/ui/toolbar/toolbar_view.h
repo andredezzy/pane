@@ -61,8 +61,7 @@ class ToolbarView : public views::View, public views::TextfieldController {
     raw_ptr<ExtensionsUi> extensions = nullptr;
   };
 
-  // What the toolbar shows, as values the app gives it (the Swift's read the
-  // model).
+  // What the toolbar shows, as values the app gives it (ADR 0073).
   struct Shows {
     Shows();
     Shows(const Shows&);

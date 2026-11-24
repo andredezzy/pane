@@ -78,8 +78,7 @@ class LockTriggers : public base::PowerSuspendObserver {
   // base::PowerSuspendObserver: the computer is about to sleep.
   void OnSuspend() override;
 
-  // How often it looks at the time without use: 15 s, as the Swift's timer,
-  // scaled.
+  // How often it looks at the time without use: 15 s (ADR 0116), scaled.
   static constexpr base::TimeDelta kTick = base::Seconds(15);
 
  private:

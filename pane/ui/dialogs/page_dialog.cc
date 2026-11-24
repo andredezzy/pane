@@ -275,7 +275,7 @@ void PageDialog::Layout(PassKey) {
   title_->SetBounds(0, y, width, title);
   y += title;
   if (message_) {
-    // Each line on its own, 2 apart, as the Swift's VStack set them.
+    // Each line on its own, 2 apart (Paper 04.15).
     int line_y = 0;
     for (views::Label* line : message_lines_) {
       const int height = line->GetHeightForWidth(width);

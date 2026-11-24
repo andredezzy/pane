@@ -41,7 +41,7 @@ constexpr int kSpacing = 8;
 constexpr int kLeading = 16;
 constexpr int kTrailing = 6;
 
-// The field's text and the count's, at 13 and 12 (FindBar.swift).
+// The field's text and the count's, at 13 and 12 (Paper 04.3).
 constexpr TextStyle kFieldText{13, weight::kRegular, 0};
 constexpr TextStyle kCountText{12, weight::kRegular, 0};
 
@@ -70,13 +70,12 @@ DialogCard::Look FindBarView::CardLook() {
   // The scale's 15: Aside's circle of 8 (ADR 0057).
   look.radius = radius::kLg;
   look.fill = kPaneColorPopover;
-  // A hairline inside the edge, which only dark draws, as SwiftUI's
-  // strokeBorder.
+  // A hairline inside the edge, which only dark draws (Paper 03.5).
   look.edge = kPaneColorFindBarRing;
   look.edge_width = 1;
   look.edge_outside = false;
   look.padding = gfx::Insets::TLBR(0, kLeading, 0, kTrailing);
-  // SwiftUI's shadow(radius: 6, y: 6).
+  // 0 6px 12px (Paper 02.5): 6 down, a Gaussian of 6.
   look.shadow = kPaneColorFindBarShadow;
   look.shadow_offset = gfx::Vector2dF(0, 6);
   look.shadow_sigma = 6;
@@ -199,7 +198,7 @@ gfx::Size FindBarView::CalculatePreferredSize(
 
 // From the trailing edge: close, then the chevrons 4 apart, then the count
 // 8 before them, and the field from the leading edge to 8 before what
-// follows it, each centered top to bottom (the Swift's HStack).
+// follows it, each centered top to bottom (Paper 04.3).
 void FindBarView::Layout(PassKey) {
   const auto centered = [&](views::View* view, int x, int width) {
     const int view_height =

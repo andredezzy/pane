@@ -29,8 +29,8 @@ constexpr base::TimeDelta kLongestHold = base::Milliseconds(50);
 
 // Waits for the frame `compositor` builds from now: one that takes a commit
 // made after the wait began, once it is handed to the display compositor
-// (OnCompositingStarted, which follows the commit and the draw), as the
-// Swift's waited for Core Animation's commit. The work then runs as a task
+// (OnCompositingStarted, which follows the commit and the draw). The work
+// then runs as a task
 // of its own, so it holds no frame back. A frame that never comes (the
 // display asleep, the compositor going) gives way after kLongestWait.
 class FrameWaiter : public ui::CompositorObserver {

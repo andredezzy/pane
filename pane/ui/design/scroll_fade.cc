@@ -24,8 +24,8 @@ namespace pane {
 
 namespace {
 
-// The Swift's mask stops: at each share of the way in from the edge, the
-// list's alpha was share²; the overlay's is what that leaves.
+// The fade's stops (Paper 03.11): at each share of the way in from the edge,
+// the list's alpha is share²; the overlay's is what that leaves.
 constexpr std::array<float, 5> kStops = {0, 0.25f, 0.5f, 0.75f, 1};
 
 }  // namespace

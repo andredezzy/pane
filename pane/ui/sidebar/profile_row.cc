@@ -35,7 +35,7 @@ namespace pane {
 
 namespace {
 
-// 8 in, its parts 8 apart (the Swift's HStack).
+// 8 in, its parts 8 apart (Paper 03.1).
 constexpr int kInset = 8;
 constexpr int kSpacing = 8;
 // The bar: 4 by 16 points, rounded 2; shown, a 16-point square rounded 4.

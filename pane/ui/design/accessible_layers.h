@@ -13,8 +13,8 @@ namespace pane {
 
 // What a screen reader reaches of the views stacked in `parent`, the window's
 // layers: each child that shows, down to the topmost one `is_modal` names
-// that shows (the PIN screen, a sheet, a dialog), and nothing under it, as
-// the Swift's .isModal kept VoiceOver on the PIN screen (ADR 0071). Views
+// that shows (the PIN screen, a sheet, a dialog), and nothing under it, so
+// VoiceOver stays in the modal layer on top (ADR 0071). Views
 // leaves out the rest of a window for a modal window over it alone
 // (ViewAXPlatformNodeDelegate::GetChildWidgets), not for a modal view in it,
 // and counts a view shown inside a hidden one as shown to its own children

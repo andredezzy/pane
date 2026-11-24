@@ -401,8 +401,8 @@ class UiApp::Page : public content::WebContentsObserver,
   // A discarded page loads once, when the app shows it: Chrome loads one
   // only as its focused window's active tab, which a Pane window behind the
   // app in use never is. Once, since Chrome's mark of a discard stays for the
-  // page's life (FrameTreeNode::was_discarded_), where the Swift's bridge
-  // read it and loaded the page again at every show.
+  // page's life (FrameTreeNode::was_discarded_): read at every show, it would
+  // load the page again each time.
   void LoadIfDiscarded() {
     if (!std::exchange(discarded_, false)) {
       return;
@@ -529,7 +529,7 @@ UiApp::UiApp(base::CommandLine launch_toast)
   sleep_ = std::make_unique<SleepController>(model(), *this);
   sidebar_width_ = model().settings().sidebar_width;
   // The menu bar, from the same command table as the window's keys, before
-  // the window shows, as the Swift's: the Window menu lists it.
+  // the window shows: the Window menu lists it.
   menu_bar_ = std::make_unique<MenuBar>(*this);
   extensions_ = std::make_unique<ExtensionsUi>(*this);
   window_->Open();
@@ -670,7 +670,7 @@ void UiApp::AccessDidOpen() {
   if (!InteractionAllowed()) {
     return;
   }
-  // Once per opening of the data, as the Swift's dataKeyDidOpen: the sidebar
+  // Once per opening of the data: the sidebar
   // shows each proxy's state from then, as the Electron app tested them at
   // launch, and a clear still owed runs now, rather than whenever its
   // profile next opens. The profile sheet is made behind the first frame
@@ -1552,7 +1552,7 @@ void UiApp::ShowPage(model::BrowserModel::Page page) {
   }
 }
 
-// A drag's drop, as the Swift's moveProfile and moveTab: the model's order,
+// A drag's drop (ADR 0066): the model's order,
 // saved as any change is (BrowserModel::ScheduleSave).
 void UiApp::MoveProfile(int from, int to) {
   if (InteractionAllowed()) {
@@ -1904,7 +1904,7 @@ void UiApp::PageDestroyed(const std::string& tab_id) {
 
 // The first crash reloads the page, as a slept tab wakes. A page that dies
 // again within a minute stays crashed instead of looping, as does one behind
-// another tab, until it reloads (the Swift's rendererDidTerminate). Only a
+// another tab, until it reloads (ADR 0027). Only a
 // renderer Chrome would show its sad tab for counts: not one that ended
 // normally, nor a page reloaded meanwhile.
 void UiApp::PageCrashed(const std::string& tab_id) {
@@ -1925,7 +1925,7 @@ void UiApp::PageCrashed(const std::string& tab_id) {
   window_->Refresh();
 }
 
-// A crashed tab reloaded starts over, as the Swift's reloadCrashed: its next
+// A crashed tab reloaded starts over (ADR 0027): its next
 // crash is a first one. The automatic reload of a first crash, never marked,
 // keeps the loop's memory.
 void UiApp::PageCameBack(const std::string& tab_id) {
@@ -1994,8 +1994,8 @@ content::WebContents* UiApp::PageForDialogs() {
 
 // MARK: The tab switcher
 
-// The open profiles' tabs, by recent use: a collapsed profile's are left out,
-// as the Swift's were.
+// The open profiles' tabs, by recent use: a collapsed profile's are left
+// out.
 void UiApp::SwitchTab(bool backward) {
   if (!InteractionAllowed()) {
     return;
@@ -2174,8 +2174,7 @@ RootView::Shows UiApp::Shows() {
   shows.lock = LockShows();
 
   // The selected tab's toolbar, on the browser page: off it, the toolbar
-  // goes, and coming back shows the tab's address again, as the Swift's
-  // toolbar, made again, did.
+  // goes, and coming back shows the tab's address again.
   ToolbarView::Shows& toolbar = shows.toolbar;
   const std::optional<std::string>& active = model.active_tab_id();
   if (const model::Tab* tab =
@@ -2288,9 +2287,8 @@ void UiApp::FocusAddressField() {
 }
 
 // ⌘1 to ⌘8: the tab at that place, or nothing when the profile has fewer,
-// as the Swift's selectTab(atIndex:). ⌘9: the last, as Chrome's and
-// Safari's, by the user's call (2026-11-10), where the Swift's was the
-// ninth.
+// as in Chrome. ⌘9: the last, as Chrome's and Safari's, by the user's call
+// (2026-11-10).
 void UiApp::SelectTabAt(int number) {
   if (!InteractionAllowed()) {
     return;
@@ -2316,7 +2314,7 @@ void UiApp::SelectTabAt(int number) {
 void UiApp::ConfirmQuit() {
   RootView* root = window_->root();
   // From Quit Pane? (⌘Q again), or at the PIN screen, the Lock's or
-  // Settings', as the Swift's quit at once where the screen showed; with no
+  // Settings', where it quits at once (ADR 0053); with no
   // window, there is nowhere to ask.
   if (quit_confirming_ || data_->IsLocked() || data_->PinScreen() || !root) {
     QuitNow();
@@ -2350,7 +2348,7 @@ void UiApp::QuitNow() {
 
 bool UiApp::IsCommandEnabled(Command command) {
   switch (command) {
-    // Behind the Lock too, as the Swift's menu let them.
+    // Behind the Lock too (ADR 0053).
     case Command::kQuit:
     case Command::kCheckForUpdates:
       return true;
@@ -2528,7 +2526,7 @@ void UiApp::CloseFind() {
 
 // MARK: The page's context menu (U2) and DevTools (ADR 0024)
 
-// The selected tab's page alone shows its menu, as the Swift's did.
+// The selected tab's page alone shows its menu.
 void UiApp::ShowContextMenu(content::RenderFrameHost& frame,
                             const content::ContextMenuParams& params) {
   content::WebContents* contents =

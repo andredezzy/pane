@@ -40,7 +40,7 @@ constexpr TextStyle kActionText{12, weight::kMedium, 0};
 
 }  // namespace
 
-// The action: its title alone, as the Swift's plain button drew it.
+// The action: its title alone (Paper 03.6).
 class LockUpdateStatus::Action : public views::Button {
   METADATA_HEADER(Action, views::Button)
 
