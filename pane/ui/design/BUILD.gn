@@ -102,7 +102,9 @@ source_set("design") {
     sources += [
       "anchored_menu_mac.h",
       "anchored_menu_mac.mm",
-      "checkbox_mac.mm",
+      "checkbox_cell_mac.h",
+      "checkbox_cell_mac.mm",
+      "checkbox_mac.cc",
       "focus_ring_mac.cc",
       "menu_icon_mac.mm",
       "palette_mac.mm",
