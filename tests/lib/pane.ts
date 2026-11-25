@@ -888,8 +888,6 @@ export async function launchPane(
 			...(context.userLaunch && userLaunchEnvironment(dataDir)),
 			...(!options.derivedDataRoot && { PANE_DATA_DIR: dataDir }),
 			PANE_AUTOMATION_DIR: automationDir,
-			// Only then does the app take the front from the app in use.
-			...(context.foreground && { PANE_AUTOMATION_FOREGROUND: "1" }),
 			...(context.appearance && {
 				PANE_SYSTEM_APPEARANCE: context.appearance,
 			}),

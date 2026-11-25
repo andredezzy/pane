@@ -183,7 +183,21 @@ for (const given of positionals) {
 				throw new Error("the scenario has ended");
 			}
 
-			const browser = await launch(options?.binary ?? binary, options);
+			// Every copy a scenario starts is a scenario's: with no channel
+			// folder, as a launch through launchPane names, Pane takes it for
+			// the user's own and keeps the front AppKit gives it as it finishes
+			// launching (ADR 0012). Only --foreground lets a copy take it.
+			const browser = await launch(options?.binary ?? binary, {
+				...options,
+				env: {
+					...(!options?.env?.PANE_AUTOMATION_DIR && {
+						PANE_AUTOMATION_DIR: context.tempDir("pane-automation-"),
+					}),
+					...(values.foreground && { PANE_AUTOMATION_FOREGROUND: "1" }),
+					...options?.env,
+				},
+			});
+
 			browsers.push(browser);
 
 			if (ended) {
