@@ -33,7 +33,7 @@ bool MayTakeFront();
 
 // Whether the window's close quits Pane: on Windows, as an app quits there
 // once its last window closes, Chrome among them; on the Mac Pane stays, in
-// the Dock, as AppKit's apps do (app_events_mac.mm, app_events_win.cc). Quit's
+// the Dock, as AppKit's apps do (app_events_mac.cc, app_events_win.cc). Quit's
 // own keys ask first (ADR 0053); the window's close asks its pages, as ever.
 bool ClosingTheWindowQuits();
 

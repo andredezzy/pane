@@ -7,7 +7,7 @@
 // center into Pane: the hook patch 0004 defines in Chrome's
 // notification_utils.cc, which includes this header (nogncheck), so a
 // signature that drifts on either side is a compile error. Set (AppEvents,
-// app_events_mac.mm), Chrome's handler hands each click, close, and settings
+// app_events_mac.cc), Chrome's handler hands each click, close, and settings
 // item macOS's center gives it to Pane's UI (UiApp::NotificationClicked), as
 // Windows' toasts come (notification_click.h): the profile opens through
 // Pane's lock and its keys, once the PIN is in. Chrome's handler loaded the
