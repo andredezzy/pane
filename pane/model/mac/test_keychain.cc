@@ -2,8 +2,7 @@
 
 #include "pane/model/mac/test_keychain.h"
 
-#import <LocalAuthentication/LocalAuthentication.h>
-#import <Security/Security.h>
+#include <Security/Security.h>
 
 #include <map>
 #include <utility>
@@ -20,7 +19,7 @@
 #include "base/thread_annotations.h"
 #include "base/threading/thread_restrictions.h"
 #include "components/os_crypt/common/keychain_password_mac.h"
-#include "crypto/apple/keychain_v2.h"
+#include "pane/model/mac/keychain_v2_calls.h"
 
 namespace pane::model {
 
@@ -40,10 +39,8 @@ std::string ValueText(CFTypeRef value) {
   if (CFDataRef data = base::apple::CFCast<CFDataRef>(value)) {
     return std::string(base::as_string_view(base::apple::CFDataToSpan(data)));
   }
-  if (LAContext* context =
-          base::apple::ObjCCast<LAContext>((__bridge id)value)) {
-    return context.interactionNotAllowed ? "LAContext, never asks"
-                                         : "LAContext, may ask";
+  if (const std::optional<bool> never_asks = NeverAsks(value)) {
+    return *never_asks ? "LAContext, never asks" : "LAContext, may ask";
   }
   return SecName(base::apple::ScopedCFTypeRef<CFStringRef>(
                      CFCopyTypeIDDescription(CFGetTypeID(value)))
@@ -73,7 +70,7 @@ TestKeychain::Call PasswordCall(std::string name,
 
 }  // namespace
 
-class TestKeychain::Fake : public crypto::apple::KeychainV2 {
+class TestKeychain::Fake : public KeychainItems {
  public:
   Fake() = default;
   Fake(const Fake&) = delete;
@@ -122,7 +119,7 @@ class TestKeychain::Fake : public crypto::apple::KeychainV2 {
     return calls_;
   }
 
-  // KeychainV2:
+  // KeychainItems:
   OSStatus ItemAdd(CFDictionaryRef attributes, CFTypeRef* result) override {
     base::AutoLock lock(lock_);
     calls_.push_back(CallOf("ItemAdd", attributes));
@@ -270,7 +267,7 @@ TestKeychain::TestKeychain() : fake_(std::make_unique<Fake>()) {}
 TestKeychain::~TestKeychain() = default;
 
 SafeStorage TestKeychain::safe_storage() {
-  return SafeStorage(*fake_);
+  return SafeStorage(fake_->keychain());
 }
 
 void TestKeychain::SetItem(std::string_view service,

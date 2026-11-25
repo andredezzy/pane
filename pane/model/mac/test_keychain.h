@@ -21,9 +21,10 @@ class WaitableEvent;
 
 namespace pane::model {
 
-// A Keychain in memory for the tests, through KeychainV2, the seam Chromium's
-// own Keychain code takes: nothing reaches the login Keychain. Thread-safe,
-// since the vault and the lock read it off the test's sequence.
+// A Keychain in memory for the tests, written in C++ (KeychainItems) and
+// reached through KeychainV2, the seam Chromium's own Keychain code takes:
+// nothing reaches the login Keychain. Thread-safe, since the vault and the
+// lock read it off the test's sequence.
 class TestKeychain {
  public:
   TestKeychain();

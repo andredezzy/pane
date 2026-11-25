@@ -13,15 +13,83 @@
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/logging.h"
+#include "base/no_destructor.h"
 #include "base/strings/sys_string_conversions.h"
 #include "components/os_crypt/common/keychain_password_mac.h"
 #include "components/os_crypt/common/os_crypt_switches.h"
 #include "crypto/apple/scoped_keychain_user_interaction_allowed.h"
 #include "pane/model/mac/keychain_v2_calls.h"
+#include "pane/model/test_hooks.h"
 
 namespace pane::model {
 
 namespace {
+
+bool IsEngineItem(std::string_view service, std::string_view account) {
+  return service == KeychainPassword::GetServiceName() &&
+         account == KeychainPassword::GetAccountName();
+}
+
+// A scenario's Keychain that won't give the engine's item, as one the user
+// denied (PANE_MOCK_KEYCHAIN_DENIES): the PIN screen's 07.7.
+bool MockDenies() {
+  return TestHook("PANE_MOCK_KEYCHAIN_DENIES").has_value();
+}
+
+// The Keychain under --use-mock-keychain: the engine's item holds the fixed
+// secret, and nothing else is there. Nothing it is asked reaches the login
+// Keychain, and nothing is kept.
+class MockKeychain : public KeychainItems {
+ public:
+  MockKeychain() = default;
+  ~MockKeychain() override = default;
+
+  OSStatus ItemAdd(CFDictionaryRef attributes, CFTypeRef* result) override {
+    return errSecSuccess;
+  }
+
+  OSStatus ItemCopyMatching(CFDictionaryRef query, CFTypeRef* result) override {
+    if (MockDenies()) {
+      return errSecAuthFailed;
+    }
+    CFStringRef service = base::apple::GetValueFromDictionary<CFStringRef>(
+        query, kSecAttrService);
+    CFStringRef account = base::apple::GetValueFromDictionary<CFStringRef>(
+        query, kSecAttrAccount);
+    return service && account &&
+                   IsEngineItem(base::SysCFStringRefToUTF8(service),
+                                base::SysCFStringRefToUTF8(account))
+               ? errSecSuccess
+               : errSecItemNotFound;
+  }
+
+  OSStatus ItemDelete(CFDictionaryRef query) override {
+    return errSecItemNotFound;
+  }
+
+  OSStatus ItemUpdate(CFDictionaryRef query,
+                      CFDictionaryRef keychain_data) override {
+    return errSecItemNotFound;
+  }
+
+  OSStatus AddGenericPassword(std::string_view service_name,
+                              std::string_view account_name,
+                              base::span<const uint8_t> password) override {
+    return errSecSuccess;
+  }
+
+  base::expected<std::vector<uint8_t>, OSStatus> FindGenericPassword(
+      std::string_view service_name,
+      std::string_view account_name) override {
+    if (!IsEngineItem(service_name, account_name)) {
+      return base::unexpected(errSecItemNotFound);
+    }
+    if (MockDenies()) {
+      return base::unexpected(errSecAuthFailed);
+    }
+    return base::ToVector(base::as_byte_span(kMockKeychainSecret));
+  }
+};
 
 base::apple::ScopedCFTypeRef<CFMutableDictionaryRef> GenericPassword(
     std::string_view service,
@@ -57,7 +125,8 @@ bool SafeStorage::UsesMockKeychain() {
 
 // static
 SafeStorage SafeStorage::Mock() {
-  return SafeStorage(MockKeychainV2(), /*mock=*/true);
+  static base::NoDestructor<MockKeychain> mock;
+  return SafeStorage(mock->keychain(), /*mock=*/true);
 }
 
 SafeStorage::SafeStorage(crypto::apple::KeychainV2& keychain)

@@ -144,8 +144,8 @@ source_set("unit_tests") {
     "proxy_password_store_unittest.cc",
     "proxy_password_vault_unittest.cc",
     "safe_storage_unittest.cc",
+    "test_keychain.cc",
     "test_keychain.h",
-    "test_keychain.mm",
     "vault_test_support.cc",
     "vault_test_support.h",
     "volume_watch_unittest.cc",
@@ -168,8 +168,6 @@ source_set("unit_tests") {
 
   frameworks = [
     "CoreFoundation.framework",
-    "Foundation.framework",
-    "LocalAuthentication.framework",
     "Security.framework",
   ]
 }

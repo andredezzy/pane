@@ -14,10 +14,13 @@
 #include <MacTypes.h>
 #include <stdint.h>
 
+#include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
 #include "base/apple/scoped_cftyperef.h"
+#include "base/containers/span.h"
 #include "base/types/expected.h"
 
 namespace crypto::apple {
@@ -28,9 +31,6 @@ namespace pane::model {
 
 // The login Keychain, KeychainV2::GetInstance().
 crypto::apple::KeychainV2& LoginKeychain();
-
-// The Keychain under --use-mock-keychain (SafeStorage::Mock).
-crypto::apple::KeychainV2& MockKeychainV2();
 
 // KeychainV2's own calls on `keychain`.
 OSStatus ItemAdd(crypto::apple::KeychainV2& keychain,
@@ -49,6 +49,44 @@ base::expected<std::vector<uint8_t>, OSStatus> FindGenericPassword(
 // query's kSecUseAuthenticationContext: where a data protection keychain's
 // item would ask, the call fails instead.
 base::apple::ScopedCFTypeRef<CFTypeRef> ContextThatNeverAsks();
+
+// Whether `value`, a query's kSecUseAuthenticationContext, never asks the
+// user, as a Keychain in C++ reads it; nullopt for what isn't an LAContext.
+std::optional<bool> NeverAsks(CFTypeRef value);
+
+// A Keychain written in C++: the six item calls of KeychainV2's, each with
+// its signature, which keychain() answers with. KeychainV2's other calls,
+// for tokens and keys, stay its own, as for any KeychainV2. The mock
+// Keychain and the tests' Keychain are written so.
+class KeychainItems {
+ public:
+  KeychainItems();
+  KeychainItems(const KeychainItems&) = delete;
+  KeychainItems& operator=(const KeychainItems&) = delete;
+  virtual ~KeychainItems();
+
+  // A KeychainV2 that answers its item calls with this one's, for
+  // SafeStorage and Chromium's own Keychain code. It lives as long as this.
+  crypto::apple::KeychainV2& keychain();
+
+  virtual OSStatus ItemAdd(CFDictionaryRef attributes, CFTypeRef* result) = 0;
+  virtual OSStatus ItemCopyMatching(CFDictionaryRef query,
+                                    CFTypeRef* result) = 0;
+  virtual OSStatus ItemDelete(CFDictionaryRef query) = 0;
+  virtual OSStatus ItemUpdate(CFDictionaryRef query,
+                              CFDictionaryRef keychain_data) = 0;
+  virtual OSStatus AddGenericPassword(std::string_view service_name,
+                                      std::string_view account_name,
+                                      base::span<const uint8_t> password) = 0;
+  virtual base::expected<std::vector<uint8_t>, OSStatus> FindGenericPassword(
+      std::string_view service_name,
+      std::string_view account_name) = 0;
+
+ private:
+  class AsKeychainV2;
+
+  std::unique_ptr<AsKeychainV2> keychain_;
+};
 
 }  // namespace pane::model
 
