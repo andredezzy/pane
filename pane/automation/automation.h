@@ -47,9 +47,13 @@ class Automation {
 
  private:
   class Files;
+  // Each command's handler, in a table by its name (automation.cc).
+  class Commands;
   using Reply = base::OnceCallback<void(base::Value result, std::string error)>;
 
   void Run(std::string name, base::DictValue command);
+  // Runs the command named `command_name` once what its row in the table
+  // needs is so, else answers why.
   void Dispatch(const std::string& command_name,
                 const base::DictValue& command,
                 Reply reply);
